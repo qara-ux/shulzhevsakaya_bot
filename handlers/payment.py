@@ -15,29 +15,46 @@ router = Router()
 
 @router.message(F.successful_payment, StateFilter("*"))
 async def process_successful_payment(message: Message, state: FSMContext):
-    # Get email from the payment info provided by Telegram
-    email = message.successful_payment.order_info.email if message.successful_payment.order_info else None
+    user_id = message.from_user.id
+    logging.info(f"✅ Processing payment for user {user_id}")
     
-    await track_event(message.from_user.id, "payment_success", message.from_user.username, amount=5000, email=email)
-    
-    from dashboard.api.database import SessionLocal
-    from dashboard.api.models import UserRecord
-    from services.email_service import send_receipt_email
-    
-    db = SessionLocal()
-    user = db.query(UserRecord).filter(UserRecord.telegram_id == message.from_user.id).first()
-    if user:
-        user.is_paid = True
-        if email: user.email = email # Capture email from payment info
-        db.commit()
-    db.close()
+    try:
+        # 1. IMMEDIATE RESPONSE: Send success node to user
+        # We do this FIRST so the user isn't left waiting
+        await send_node(message, "success", state)
+        await state.clear()
+        cancel_reminders(user_id)
+        
+        # 2. BACKGROUND: Update Database
+        from dashboard.api.database import SessionLocal
+        from dashboard.api.models import UserRecord
+        
+        db = SessionLocal()
+        email = None
+        try:
+            email = message.successful_payment.order_info.email if message.successful_payment.order_info else None
+            user = db.query(UserRecord).filter(UserRecord.telegram_id == user_id).first()
+            if user:
+                user.is_paid = True
+                if email: user.email = email
+                db.commit()
+            logging.info(f"💾 DB Updated for {user_id}")
+        except Exception as db_err:
+            logging.error(f"❌ DB update error after payment: {db_err}")
+        finally:
+            db.close()
 
-    if email:
-        await send_receipt_email(email, 5000, message.from_user.username or "Участник")
-
-    cancel_reminders(message.from_user.id)
-    await state.clear()
-    await send_node(message, "success", state)
+        # 3. BACKGROUND: Track and Email
+        await track_event(user_id, "payment_success", message.from_user.username, amount=5000, email=email)
+        
+        if email:
+            from services.email_service import send_receipt_email
+            await send_receipt_email(email, 5000, message.from_user.username or "Участник")
+            
+    except Exception as e:
+        logging.error(f"🚨 CRITICAL error in payment handler: {e}", exc_info=True)
+        # Final fallback to ensure the user gets something
+        await message.answer("🎉 Оплата прошла! \n\nВот ваша ссылка: https://t.me/+C-xOxlwd-MFmYjZi")
 
 @router.message(F.text, StateFilter(MarathonState.waiting_for_email))
 async def process_email_legacy(message: Message, state: FSMContext, bot: Bot):
