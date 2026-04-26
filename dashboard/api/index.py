@@ -259,6 +259,17 @@ async def send_direct(req: Dict[str, Any], db: Session = Depends(get_db)):
 async def get_user_logs(user_id: str, db: Session = Depends(get_db)):
     return db.query(AnalyticsEvent).filter(AnalyticsEvent.user_id == int(user_id)).order_by(AnalyticsEvent.created_at.desc()).all()
 
+@app.post("/api/danger/reset")
+async def reset_data(db: Session = Depends(get_db)):
+    try:
+        db.query(AnalyticsEvent).delete()
+        db.query(UserRecord).delete()
+        db.commit()
+        return {"status": "ok"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(500, detail=str(e))
+
 app.mount("/static", StaticFiles(directory="dashboard/static"), name="static")
 @app.get("/")
 async def idx(): return FileResponse("dashboard/static/index.html")

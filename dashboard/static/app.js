@@ -793,6 +793,23 @@ window.filterLogUsers = (q) => {
     renderLogUsers(filtered);
 };
 
+window.resetData = async () => {
+    if (!confirm("ВНИМАНИЕ! Это полностью удалит всех клиентов и всю статистику. Это действие необратимо. Продолжить?")) return;
+    
+    try {
+        const r = await fetch('/api/danger/reset', { method: 'POST' });
+        if (r.ok) {
+            alert("Данные успешно очищены");
+            location.reload();
+        } else {
+            alert("Ошибка при очистке");
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Системная ошибка");
+    }
+};
+
 // Init
 setLanguage(currentLang);
 showTab('overview');
