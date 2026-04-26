@@ -66,11 +66,20 @@ async def main():
     async def error_handler(event: types.ErrorEvent):
         logging.error(f"⚠️ GLOBAL ERROR: {event.exception}", exc_info=True)
         try:
-            await event.update.message.answer(
-                "Извини, произошла небольшая техническая ошибка 🍫\n"
-                "Мы уже чиним её! Попробуй нажать /start через минуту."
-            )
-        except: pass
+            # Try to find a way to reply to the user
+            msg = None
+            if event.update.message:
+                msg = event.update.message
+            elif event.update.callback_query:
+                msg = event.update.callback_query.message
+            
+            if msg:
+                await msg.answer(
+                    "Извини, произошла небольшая техническая ошибка 🍫\n"
+                    "Мы уже чиним её! Попробуй нажать /start через минуту."
+                )
+        except Exception as e:
+            logging.error(f"Failed to send error message: {e}")
 
     # Start scheduler
     scheduler.start()
