@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, JSON, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, JSON, Boolean, ForeignKey, BigInteger
 from datetime import datetime
 from .database import Base
 
@@ -6,14 +6,14 @@ from .database import Base
 class AnalyticsEvent(Base):
     __tablename__ = "events"
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, index=True)
+    user_id = Column(BigInteger, index=True)
     event_name = Column(String, index=True)
     data = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class UserRecord(Base):
     __tablename__ = "users"
-    telegram_id = Column(Integer, primary_key=True, index=True)
+    telegram_id = Column(BigInteger, primary_key=True, index=True)
     username = Column(String, nullable=True)
     email = Column(String, nullable=True)
     is_paid = Column(Boolean, default=False)
