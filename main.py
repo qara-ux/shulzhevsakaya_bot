@@ -65,8 +65,9 @@ async def main():
     @dp.errors()
     async def error_handler(event: types.ErrorEvent):
         logging.error(f"⚠️ GLOBAL ERROR: {event.exception}", exc_info=True)
+        
+        # 1. Notify the user
         try:
-            # Try to find a way to reply to the user
             msg = None
             if event.update.message:
                 msg = event.update.message
@@ -78,8 +79,16 @@ async def main():
                     "Извини, произошла небольшая техническая ошибка 🍫\n"
                     "Мы уже чиним её! Попробуй нажать /start через минуту."
                 )
+        except: pass
+
+        # 2. Notify the Admin with traceback
+        try:
+            import traceback
+            tb_str = traceback.format_exc()
+            error_msg = f"❌ <b>БОТ УПАЛ!</b>\n\n<b>Ошибка:</b> {event.exception}\n\n<code>{tb_str[:3000]}</code>"
+            await bot.send_message(config.admin_id, error_msg, parse_mode="HTML")
         except Exception as e:
-            logging.error(f"Failed to send error message: {e}")
+            logging.error(f"Could not send error to admin: {e}")
 
     # Start scheduler
     scheduler.start()
