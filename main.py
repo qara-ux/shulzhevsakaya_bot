@@ -3,6 +3,13 @@ import sys
 import asyncio
 import logging
 import signal
+import sys
+
+# HIGH VISIBILITY STARTUP LOG
+print("\n" + "="*50, flush=True)
+print("🚀!!! REGINA BOT IS STARTING UP ON RAILWAY !!!🚀", flush=True)
+print("="*50 + "\n", flush=True)
+
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.fsm.storage.memory import MemoryStorage
 

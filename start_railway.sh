@@ -6,8 +6,8 @@ echo "Analytics URL set to: $ANALYTICS_API_URL"
 
 # Start Dashboard in background
 echo "Starting Dashboard on port ${PORT:-8000}..."
-uvicorn dashboard.api.index:app --host 0.0.0.0 --port ${PORT:-8000} &
+PYTHONUNBUFFERED=1 uvicorn dashboard.api.index:app --host 0.0.0.0 --port ${PORT:-8000} &
 
 # Start Bot in foreground
-echo "Starting Bot..."
-python3 main.py
+echo "Starting Bot process..."
+PYTHONUNBUFFERED=1 python3 -u main.py
