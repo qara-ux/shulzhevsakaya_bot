@@ -3,6 +3,7 @@ pydantic-settings
 apscheduler
 email-validator
 python-dotenv
+psycopg2-binary
 httpx
 aiosmtplib
 fastapi
