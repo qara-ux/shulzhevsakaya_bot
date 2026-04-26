@@ -52,8 +52,15 @@ try:
     
     # Check if we need to seed the initial nodes
     db = SessionLocal()
-    if db.query(BotNode).count() == 0:
+    node_count = db.query(BotNode).count()
+    first_node = db.query(BotNode).first()
+    
+    # Seed if empty or if it only contains the 'placeholder' welcome message
+    if node_count == 0 or (node_count == 1 and "Бот успешно запущен на Railway" in first_node.content):
         logging.info("Seeding full funnel structure...")
+        if node_count > 0:
+            db.query(BotNode).delete() # Clear the placeholder
+        
         nodes_data = [
             {
                 "id": "entry",
