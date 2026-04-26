@@ -13,11 +13,11 @@ async function updateDashboard() {
         document.getElementById('conversion').innerText = `${data.conversion_rate || 0}%`;
         
         const stages = [
-            { label: 'Starts', val: data.funnel.starts || 0 },
-            { label: 'Engagement', val: data.funnel.engagement || 0 },
-            { label: 'Leads', val: data.funnel.leads || 0 },
-            { label: 'Payments', val: data.funnel.payments || 0 },
-            { label: 'Success', val: data.funnel.success || 0 }
+            { label: 'Входы', val: data.funnel.starts || 0 },
+            { label: 'Кнопки', val: data.funnel.engagement || 0 },
+            { label: 'Email', val: data.funnel.leads || 0 },
+            { label: 'Оплаты', val: data.funnel.payments || 0 },
+            { label: 'Успех', val: data.funnel.success || 0 }
         ];
 
         const container = document.getElementById('visual-funnel');
@@ -113,7 +113,7 @@ function showTab(tabId) {
 
     if (tabId === 'constructor') loadNodes();
     if (tabId === 'overview') updateDashboard();
-    if (tabId === 'crm') loadUsers();
+    if (tabId === 'clients') loadUsers();
     if (tabId === 'planner') loadPlannerQueue();
     if (tabId === 'logs') loadLogsUsers();
 }
@@ -721,14 +721,14 @@ async function createNewNode() {
 
 const translations = {
     ru: {
-        nav_overview: "Обзор", nav_crm: "Клиенты", nav_planner: "Рассылки", nav_constructor: "Конструктор",
-        stat_volume: "Выручка", stat_users: "Всего пользователей", stat_conv: "Конверсия",
+        nav_overview: "Обзор", nav_clients: "Clients", nav_planner: "Рассылки", nav_constructor: "Конструктор", nav_logs: "Активность",
+        stat_volume: "Выручка", stat_users: "Пользователи", stat_conv: "Конверсия",
         funnel_title: "Воронка продаж", crm_title: "База клиентов", crm_search: "Поиск по базе...",
-        table_user: "Пользователь", table_email: "Email", table_status: "Статус",
+        table_user: "Клиент", table_email: "Email", table_status: "Статус",
         btn_save: "Сохранить", btn_add_node: "Создать блок"
     },
     en: {
-        nav_overview: "Overview", nav_crm: "CRM", nav_planner: "Planner", nav_constructor: "Constructor",
+        nav_overview: "Overview", nav_clients: "Clients", nav_planner: "Planner", nav_constructor: "Constructor", nav_logs: "Logs",
         stat_volume: "Volume", stat_users: "Total Users", stat_conv: "Conversion",
         funnel_title: "Conversion Funnel", crm_title: "Customer Base", crm_search: "Search...",
         table_user: "User", table_email: "Email", table_status: "Status",

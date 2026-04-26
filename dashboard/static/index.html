@@ -18,11 +18,11 @@
                 <span class="badge">v1.1</span>
             </div>
             <nav class="nav-links">
-                <button onclick="showTab('overview')" class="nav-btn active">Overview</button>
-                <button onclick="showTab('crm')" class="nav-btn">CRM</button>
-                <button onclick="showTab('planner')" class="nav-btn">Planner</button>
-                <button onclick="showTab('logs')" class="nav-btn">Logs</button>
-                <button onclick="showTab('constructor')" class="nav-btn">Constructor</button>
+                <button onclick="showTab('overview')" class="nav-btn active" data-i18n="nav_overview">Обзор</button>
+                <button onclick="showTab('clients')" class="nav-btn" data-i18n="nav_clients">Clients</button>
+                <button onclick="showTab('planner')" class="nav-btn" data-i18n="nav_planner">Рассылки</button>
+                <button onclick="showTab('logs')" class="nav-btn" data-i18n="nav_logs">Активность</button>
+                <button onclick="showTab('constructor')" class="nav-btn" data-i18n="nav_constructor">Конструктор</button>
             </nav>
             <div class="header-actions">
                 <div class="lang-switcher">
@@ -76,11 +76,11 @@
             </div>
         </section>
 
-        <section id="crm-tab" class="tab-content">
+        <section id="clients-tab" class="tab-content">
             <div class="card-header">
-                <h2 data-i18n="crm_title">Customer Base</h2>
+                <h2 data-i18n="crm_title">База клиентов</h2>
                 <div class="search-wrapper">
-                    <input type="text" id="crm-search" data-i18n-placeholder="crm_search" placeholder="Search..." oninput="filterUsers()">
+                    <input type="text" id="crm-search" data-i18n-placeholder="crm_search" placeholder="Поиск по клиентам...">
                 </div>
             </div>
             <div class="p-card" style="padding: 0; overflow: hidden;">
