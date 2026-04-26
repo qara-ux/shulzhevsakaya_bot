@@ -122,6 +122,9 @@ async def handle_node_callback(callback: types.CallbackQuery, state: FSMContext)
         await send_payment_invoice(callback, state, callback.bot)
         return
 
+    # Track as confirmation click
+    await track_event(callback.from_user.id, "click_start")
+    
     await send_node(callback, node_id, state)
     await callback.answer()
 
