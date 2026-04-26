@@ -166,7 +166,6 @@ async def get_stats(db: Session = Depends(get_db)):
     
     # Funnel steps
     starts = tot
-    confirmations = db.query(func.count(func.distinct(AnalyticsEvent.user_id))).filter(AnalyticsEvent.event_name == "click_start").scalar() or 0
     leads = db.query(func.count(UserRecord.telegram_id)).filter(UserRecord.email != None).scalar() or 0
     checkout = db.query(func.count(func.distinct(AnalyticsEvent.user_id))).filter(AnalyticsEvent.event_name == "payment_started").scalar() or 0
     payments = db.query(func.count(func.distinct(AnalyticsEvent.user_id))).filter(AnalyticsEvent.event_name == "payment_success").scalar() or 0
@@ -179,7 +178,6 @@ async def get_stats(db: Session = Depends(get_db)):
         "conversion_rate": round(paid/tot*100, 2) if tot else 0,
         "funnel": {
             "starts": starts,
-            "confirmations": confirmations,
             "leads": leads,
             "checkout": checkout,
             "payments": payments,

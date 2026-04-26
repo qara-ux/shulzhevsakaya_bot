@@ -15,7 +15,6 @@ async function updateDashboard() {
         const t = translations[currentLang];
         const stages = [
             { label: t.stage_starts, val: data.funnel.starts || 0 },
-            { label: t.stage_confirmations, val: data.funnel.confirmations || 0 },
             { label: t.stage_leads, val: data.funnel.leads || 0 },
             { label: t.stage_checkout, val: data.funnel.checkout || 0 },
             { label: t.stage_payments, val: data.funnel.payments || 0 },
@@ -728,7 +727,7 @@ const translations = {
         funnel_title: "Воронка продаж", crm_title: "База клиентов", crm_search: "Поиск по базе...",
         table_user: "Клиент", table_email: "Email", table_status: "Статус",
         btn_save: "Сохранить", btn_add_node: "Создать блок",
-        stage_starts: "Входы", stage_confirmations: "Подтверждения", stage_leads: "Лиды", stage_checkout: "Переход к оплате", stage_payments: "Оплата", stage_success: "Успех"
+        stage_starts: "Входы", stage_leads: "Лиды", stage_checkout: "Переход к оплате", stage_payments: "Оплата", stage_success: "Успех"
     },
     en: {
         nav_overview: "Overview", nav_clients: "Clients", nav_planner: "Planner", nav_constructor: "Constructor", nav_logs: "Logs",
@@ -736,7 +735,7 @@ const translations = {
         funnel_title: "Conversion Funnel", crm_title: "Customer Base", crm_search: "Search...",
         table_user: "User", table_email: "Email", table_status: "Status",
         btn_save: "Save Stage", btn_add_node: "Create Node",
-        stage_starts: "Starts", stage_confirmations: "Confirmations", stage_leads: "Leads", stage_checkout: "Checkout", stage_payments: "Payments", stage_success: "Success"
+        stage_starts: "Starts", stage_leads: "Leads", stage_checkout: "Checkout", stage_payments: "Payments", stage_success: "Success"
     }
 };
 
