@@ -2,4 +2,6 @@
 builder = "nixpacks"
 
 [deploy]
-restartPolicyType = "always"
+startCommand = "bash start_railway.sh"
+healthcheckPath = "/api/stats"
+healthcheckTimeout = 100
