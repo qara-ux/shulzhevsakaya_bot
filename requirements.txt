@@ -5,3 +5,5 @@ email-validator
 python-dotenv
 httpx
 aiosmtplib
+fastapi
+uvicorn
