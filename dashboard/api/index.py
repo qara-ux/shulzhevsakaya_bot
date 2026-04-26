@@ -8,7 +8,7 @@ from fastapi import FastAPI, Depends, Header, HTTPException, Body
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, text
 from pydantic import BaseModel
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -18,6 +18,16 @@ from .models import AnalyticsEvent, UserRecord, ScheduledBroadcast, BotNode
 
 load_dotenv()
 Base.metadata.create_all(bind=engine)
+
+# Migration: Ensure BigInteger for Telegram IDs
+with engine.connect() as conn:
+    try:
+        conn.execute(text("ALTER TABLE users ALTER COLUMN telegram_id TYPE BIGINT"))
+        conn.execute(text("ALTER TABLE events ALTER COLUMN user_id TYPE BIGINT"))
+        conn.commit()
+        print("MIGRATION: Successfully upgraded to BigInteger")
+    except Exception as e:
+        print(f"MIGRATION: Skip or fail (likely sqlite or already done): {e}")
 
 app = FastAPI()
 scheduler = AsyncIOScheduler(timezone="UTC")
