@@ -34,6 +34,7 @@ async def track_event(user_id: int, event_name: str, username: str = None, **kwa
         event = AnalyticsEvent(user_id=user_id, event_name=event_name, data=kwargs)
         db.add(event)
         db.commit()
+        print(f"📡 ANALYTICS_DB_WRITE: Saved {event_name} for user {user_id}")
     except Exception as e:
         logger.error(f"Direct analytics write failed: {e}")
         db.rollback()
