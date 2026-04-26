@@ -1,0 +1,11 @@
+.env
+*.db
+*.db-journal
+*.log
+*.pid
+backups/
+__pycache__/
+.venv/
+.DS_Store
+*.bak
+test_email.py

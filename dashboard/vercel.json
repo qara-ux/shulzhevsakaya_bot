@@ -1,0 +1,12 @@
+{
+  "rewrite": [
+    { "source": "/api/(.*)", "destination": "api/index.py" },
+    { "source": "/static/(.*)", "destination": "static/$1" },
+    { "source": "/", "destination": "api/index.py" }
+  ],
+  "functions": {
+    "api/index.py": {
+      "runtime": "vercel-python@0.0.1"
+    }
+  }
+}
