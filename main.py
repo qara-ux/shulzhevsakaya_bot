@@ -43,6 +43,30 @@ from config import config
 from handlers import start, dynamic, payment, faq
 from services.scheduler import scheduler
 
+# Initialize database tables
+try:
+    from dashboard.api.database import engine, Base, SessionLocal
+    from dashboard.api.models import AnalyticsEvent, UserRecord, ScheduledBroadcast, BotNode
+    Base.metadata.create_all(bind=engine)
+    logging.info("Database tables initialized.")
+    
+    # Check if we need to seed the initial node
+    db = SessionLocal()
+    if db.query(BotNode).count() == 0:
+        logging.info("Seeding initial 'entry' node...")
+        start_node = BotNode(
+            id="entry",
+            title="Start",
+            content="Добро пожаловать! Бот успешно запущен на Railway. 🎉\n\nПерейдите в админку, чтобы настроить логику.",
+            is_start_node=True,
+            buttons=[]
+        )
+        db.add(start_node)
+        db.commit()
+    db.close()
+except Exception as e:
+    logging.error(f"Failed to initialize database: {e}")
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
