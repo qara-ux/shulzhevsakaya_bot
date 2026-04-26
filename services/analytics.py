@@ -13,38 +13,29 @@ async def track_event(user_id: int, event_name: str, username: str = None, **kwa
     # 1. Log locally
     extra = f" | {kwargs}" if kwargs else ""
     logger.info(f"USER:{user_id} | EVENT:{event_name}{extra}")
-    print(f"DEBUG_ANALYTICS: user_id={user_id}, username={username}, event={event_name}, data={kwargs}")
 
-    # 2. Send to Dashboard API
-    payload = {
-        "user_id": user_id,
-        "event_name": event_name,
-        "username": username,
-        "data": kwargs
-    }
+    # 2. Direct Database Write (Reliable for Railway/Single Container)
+    from dashboard.api.database import SessionLocal
+    from dashboard.api.models import AnalyticsEvent, UserRecord
     
-    headers = {
-        "X-API-Key": config.analytics_api_key
-    }
-
+    db = SessionLocal()
     try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                f"{config.analytics_api_url}/api/track",
-                json=payload,
-                headers=headers,
-                timeout=5.0
-            )
-            if resp.status_code != 200:
-                logger.error(f"Analytics API returned {resp.status_code}: {resp.text}")
-                # Optional: notify admin about the failure
-                if "node_entry" in event_name: # Only notify on first event to avoid spam
-                    from aiogram import Bot
-                    bot = Bot(token=config.bot_token.get_secret_value())
-                    await bot.send_message(
-                        config.admin_id, 
-                        f"⚠️ <b>ОШИБКА АНАЛИТИКИ</b>\nURL: {config.analytics_api_url}\nStatus: {resp.status_code}\nResponse: {resp.text[:200]}"
-                    )
-                    await bot.session.close()
+        # Ensure user exists
+        user = db.query(UserRecord).filter(UserRecord.telegram_id == user_id).first()
+        if not user:
+            user = UserRecord(telegram_id=user_id, username=username)
+            db.add(user)
+            db.flush()
+        
+        if username:
+            user.username = username
+        
+        # Save event
+        event = AnalyticsEvent(user_id=user_id, event_name=event_name, data=kwargs)
+        db.add(event)
+        db.commit()
     except Exception as e:
-        logger.error(f"Failed to send analytics to dashboard: {e}")
+        logger.error(f"Direct analytics write failed: {e}")
+        db.rollback()
+    finally:
+        db.close()
