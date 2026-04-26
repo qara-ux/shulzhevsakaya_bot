@@ -3,10 +3,15 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./analytics.db")
+# Determine database path
+# If running on Railway with a volume mounted at /app/data, use it
+PERSISTENT_PATH = "/app/data/analytics.db"
+if os.path.exists("/app/data"):
+    DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{PERSISTENT_PATH}")
+else:
+    DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./analytics.db")
 
 # Log the absolute path for debugging
-import os
 db_path = DATABASE_URL.replace("sqlite:///", "")
 if not DATABASE_URL.startswith("postgres"):
     print(f"DEBUG_DB: Absolute path is {os.path.abspath(db_path)}")
