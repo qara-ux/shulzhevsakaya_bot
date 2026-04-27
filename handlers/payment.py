@@ -43,7 +43,7 @@ async def check_payment_status(payment_id: str, chat_id: int, user_id: int, bot:
                     db.close()
                 
                 keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="🚀 Присоединиться к марафону", url="https://t.me/+C-xOxlwd-MFmYjZi")]
+                    [InlineKeyboardButton(text="🚀 Присоединиться к марафону", url="https://t.me/+bS5QPLnYB8M0Y2Ji")]
                 ])
                 
                 await bot.send_message(

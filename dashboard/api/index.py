@@ -188,7 +188,7 @@ async def yookassa_webhook(request: Request, db: Session = Depends(get_db)):
                             "text": "🎉 Поздравляем! Оплата прошла успешно.\n\nТеперь вам открыт полный доступ к марафону «МЕТОД». Нажмите кнопку ниже, чтобы вступить в группу:",
                             "reply_markup": {
                                 "inline_keyboard": [[
-                                    {"text": "🚀 Присоединиться к марафону", "url": "https://t.me/+C-xOxlwd-MFmYjZi"}
+                                    {"text": "🚀 Присоединиться к марафону", "url": "https://t.me/+bS5QPLnYB8M0Y2Ji"}
                                 ]]
                             }
                         })
