@@ -103,7 +103,7 @@ async def send_payment_link(callback: CallbackQuery, state: FSMContext, bot: Bot
         await track_event(callback.from_user.id, "payment_started", callback.from_user.username)
 
     except Exception as e:
-        print(f"❌ YOOKASSA_API_ERROR: {e}", flush=True)
+        print(f"❌ YOOKASSA_API_ERROR: type={type(e)} msg={str(e)}", flush=True)
         await callback.message.answer("⚠️ Ошибка создания платежа. Попробуйте еще раз или напишите нам.")
 
 @router.message(F.successful_payment, StateFilter("*"))
