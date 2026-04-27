@@ -57,8 +57,8 @@ async def send_payment_invoice(callback: CallbackQuery, state: FSMContext, bot: 
             provider_token=token,
             currency="RUB",
             prices=prices,
-            payload="marathon_payment",
-            start_parameter="pay"
+            payload="marathon_payment_v2",
+            start_parameter="marathon_v2"
         )
         print(f"DEBUG_INVOICE_OK: user={callback.from_user.id}", flush=True)
     except Exception as e:
