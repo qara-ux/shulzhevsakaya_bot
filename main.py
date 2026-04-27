@@ -145,6 +145,9 @@ async def main():
     bot = Bot(token=config.bot_token.get_secret_value())
     dp = Dispatcher(storage=MemoryStorage())
 
+    from middlewares.notification import NotificationMiddleware
+    dp.message.middleware(NotificationMiddleware())
+
     # Include routers - Order Matters!
     # The start router MUST be first to override any stuck FSM states.
     dp.include_router(start.router)
