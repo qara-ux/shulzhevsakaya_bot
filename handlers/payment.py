@@ -18,60 +18,94 @@ router = Router()
 @router.message(F.successful_payment, StateFilter("*"))
 async def process_successful_payment(message: Message, state: FSMContext):
     user_id = message.from_user.id
-    print(f"DEBUG: Payment success for {user_id}", flush=True)
+    logging.info(f"✅ Successful payment received from {user_id}")
+    
     try:
+        # 1. Immediate Success Response
         await send_node(message, "success", state)
         await state.clear()
         cancel_reminders(user_id)
+        
+        # 2. Update DB
         from dashboard.api.database import SessionLocal
         from dashboard.api.models import UserRecord
         db = SessionLocal()
+        email = None
         try:
+            email = message.successful_payment.order_info.email if message.successful_payment.order_info else None
             user = db.query(UserRecord).filter(UserRecord.telegram_id == user_id).first()
             if user:
                 user.is_paid = True
+                if email: user.email = email
                 db.commit()
+            logging.info(f"💾 Database updated for user {user_id}")
+        except Exception as db_err:
+            logging.error(f"❌ DB update error: {db_err}")
         finally:
             db.close()
-        await track_event(user_id, "payment_success", message.from_user.username)
+
+        # 3. Analytics & Email Receipt
+        await track_event(user_id, "payment_success", message.from_user.username, amount=5000, email=email)
+        
+        if email:
+            from services.email_service import send_receipt_email
+            await send_receipt_email(email, 5000, message.from_user.username or "Участник")
+            
     except Exception as e:
-        print(f"DEBUG: Success error: {e}", flush=True)
-        await message.answer("🎉 Оплата прошла! Ссылка: https://t.me/+C-xOxlwd-MFmYjZi")
+        logging.error(f"🚨 Error in success payment handler: {e}")
+        await message.answer("🎉 Оплата прошла! Ссылка на группу: https://t.me/+C-xOxlwd-MFmYjZi")
 
 @router.callback_query(F.data == "go_to_payment")
 async def send_payment_invoice(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await track_event(callback.from_user.id, "click_pay", callback.from_user.username)
     await callback.answer()
     
-    # TEST PRICE 110 RUB
-    prices = [LabeledPrice(label="Тестовая оплата", amount=110 * 100)]
+    prices = [LabeledPrice(label="Участие в марафоне «МЕТОД»", amount=5000 * 100)]
     token = config.payment_token.get_secret_value()
     
-    print(f"DEBUG_INVOICE_TEST: user={callback.from_user.id} len={len(token)}", flush=True)
+    # 54-FZ Compliance: Receipt data for YooKassa
+    provider_data = {
+        "receipt": {
+            "items": [
+                {
+                    "description": "Участие в марафоне «МЕТОД»",
+                    "quantity": "1.00",
+                    "amount": {
+                        "value": "5000.00",
+                        "currency": "RUB"
+                    },
+                    "vat_code": 1 # No VAT
+                }
+            ]
+        }
+    }
 
     try:
+        logging.info(f"📤 Sending live invoice to {callback.from_user.id}")
         await callback.message.answer_invoice(
-            title="ТЕСТ ПЛАТЕЖА",
-            description="Проверка связи с ЮKassa (110 руб)",
+            title="Марафон «МЕТОД»",
+            description="Полный доступ к весеннему марафону трансформации (4 недели)",
             provider_token=token,
             currency="rub",
             prices=prices,
-            payload="test_payment_v100",
-            start_parameter="test_pay_110"
+            payload="marathon_payment_final",
+            start_parameter="marathon_final",
+            provider_data=json.dumps(provider_data),
+            need_email=True,
+            send_email_to_provider=True
         )
-        print(f"DEBUG_INVOICE_OK: user={callback.from_user.id}", flush=True)
     except Exception as e:
-        print(f"DEBUG_INVOICE_ERROR: user={callback.from_user.id} err={e}", flush=True)
+        logging.error(f"❌ Invoice sending failed: {e}")
     
     await state.set_state(MarathonState.waiting_for_payment)
     await track_event(callback.from_user.id, "payment_started", callback.from_user.username)
+    schedule_payment_reminder(bot, callback.from_user.id)
 
 @router.pre_checkout_query()
 async def process_pre_checkout(pre_checkout_query: PreCheckoutQuery):
-    print(f"DEBUG_PRECHECKOUT: user={pre_checkout_query.from_user.id}", flush=True)
+    logging.info(f"💳 PreCheckoutQuery from {pre_checkout_query.from_user.id}")
     try:
         await pre_checkout_query.answer(ok=True)
-        print(f"DEBUG_PRECHECKOUT_OK: user={pre_checkout_query.from_user.id}", flush=True)
     except Exception as e:
-        print(f"DEBUG_PRECHECKOUT_ERR: user={pre_checkout_query.from_user.id} err={e}", flush=True)
-        await pre_checkout_query.answer(ok=False, error_message="Ошибка. Попробуйте снова.")
+        logging.error(f"❌ PreCheckout error: {e}")
+        await pre_checkout_query.answer(ok=False, error_message="Ошибка на стороне сервера. Попробуйте еще раз через минуту.")
