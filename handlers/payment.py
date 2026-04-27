@@ -119,5 +119,12 @@ async def send_payment_invoice(callback: CallbackQuery, state: FSMContext, bot: 
 
 @router.pre_checkout_query()
 async def process_pre_checkout(pre_checkout_query: PreCheckoutQuery):
-    # Telegram requires answering pre_checkout_query within 10 seconds
-    await pre_checkout_query.answer(ok=True)
+    logging.info(f"💳 PRE_CHECKOUT_RECEIVED: User {pre_checkout_query.from_user.id}, Total {pre_checkout_query.total_amount/100} {pre_checkout_query.currency}")
+    
+    try:
+        # We can add validation here if needed (e.g. check stock)
+        await pre_checkout_query.answer(ok=True)
+        logging.info(f"✅ PRE_CHECKOUT_APPROVED for user {pre_checkout_query.from_user.id}")
+    except Exception as e:
+        logging.error(f"❌ PRE_CHECKOUT_FAILED for user {pre_checkout_query.from_user.id}: {e}")
+        await pre_checkout_query.answer(ok=False, error_message="Ошибка на стороне сервера. Попробуйте позже.")
