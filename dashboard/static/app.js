@@ -288,19 +288,21 @@ function renderNodesOnCanvas() {
         editor.addNode(node.id, 1, 1, node.x || 100, node.y || 100, isReminder ? 'reminder-node' : 'main-node', { id: node.id }, html);
     });
 
-    // Draw connections
-    allNodes.forEach(node => {
-        if (node.buttons) {
-            node.buttons.forEach(btn => {
-                if (btn.next_node) {
-                    try { editor.addConnection(node.id, btn.next_node, 'output_1', 'input_1'); } catch(e){}
-                }
-            });
-        }
-        if (node.parent_node_id) {
-            try { editor.addConnection(node.parent_node_id, node.id, 'output_1', 'input_1'); } catch(e){}
-        }
-    });
+    // Draw connections with a small delay to ensure nodes are rendered
+    setTimeout(() => {
+        allNodes.forEach(node => {
+            if (node.buttons) {
+                node.buttons.forEach(btn => {
+                    if (btn.next_node) {
+                        try { editor.addConnection(node.id, btn.next_node, 'output_1', 'input_1'); } catch(e){}
+                    }
+                });
+            }
+            if (node.parent_node_id) {
+                try { editor.addConnection(node.parent_node_id, node.id, 'output_1', 'input_1'); } catch(e){}
+            }
+        });
+    }, 200);
 }
 
 function openSidepanel(nodeId) {

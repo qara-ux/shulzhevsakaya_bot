@@ -263,6 +263,47 @@ async def yookassa_webhook(request: Request, db: Session = Depends(get_db)):
         return {"status": "ok"}
     except: return {"status": "error"}
 
+async def check_broadcasts():
+    db = SessionLocal()
+    try:
+        now = datetime.utcnow()
+        tasks = db.query(ScheduledBroadcast).filter(
+            ScheduledBroadcast.is_sent == False,
+            ScheduledBroadcast.send_at <= now,
+            ScheduledBroadcast.is_active == True
+        ).all()
+        
+        for task in tasks:
+            print(f"🚀 Executing broadcast {task.id}")
+            # Get target users
+            if task.filter_type == "paid":
+                users = db.query(UserRecord).filter(UserRecord.is_paid == True).all()
+            elif task.filter_type == "free":
+                users = db.query(UserRecord).filter(UserRecord.is_paid == False).all()
+            else:
+                users = db.query(UserRecord).all()
+            
+            async with httpx.AsyncClient() as client:
+                for u in users:
+                    try:
+                        await client.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", json={
+                            "chat_id": u.telegram_id,
+                            "text": task.message
+                        })
+                    except: pass
+            
+            task.is_sent = True
+        db.commit()
+    except Exception as e:
+        print(f"Broadcast error: {e}")
+    finally:
+        db.close()
+
+@app.on_event("startup")
+async def startup_event():
+    scheduler.add_job(check_broadcasts, "interval", minutes=1)
+    scheduler.start()
+
 # Serve static
 app.mount("/static", StaticFiles(directory="dashboard/static"), name="static")
 
