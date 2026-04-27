@@ -18,12 +18,11 @@ router = Router()
 @router.message(F.successful_payment, StateFilter("*"))
 async def process_successful_payment(message: Message, state: FSMContext):
     user_id = message.from_user.id
-    print(f"DEBUG: Processing successful payment for {user_id}", flush=True)
+    print(f"DEBUG: Payment success for {user_id}", flush=True)
     try:
         await send_node(message, "success", state)
         await state.clear()
         cancel_reminders(user_id)
-        
         from dashboard.api.database import SessionLocal
         from dashboard.api.models import UserRecord
         db = SessionLocal()
@@ -34,33 +33,31 @@ async def process_successful_payment(message: Message, state: FSMContext):
                 db.commit()
         finally:
             db.close()
-        await track_event(user_id, "payment_success", message.from_user.username, amount=5000)
+        await track_event(user_id, "payment_success", message.from_user.username)
     except Exception as e:
-        print(f"DEBUG: Success handler error: {e}", flush=True)
-        await message.answer("🎉 Оплата прошла! \n\nВот ваша ссылка: https://t.me/+C-xOxlwd-MFmYjZi")
+        print(f"DEBUG: Success error: {e}", flush=True)
+        await message.answer("🎉 Оплата прошла! Ссылка: https://t.me/+C-xOxlwd-MFmYjZi")
 
 @router.callback_query(F.data == "go_to_payment")
 async def send_payment_invoice(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await track_event(callback.from_user.id, "click_pay", callback.from_user.username)
     await callback.answer()
     
-    prices = [LabeledPrice(label="Оплата участия", amount=5000 * 100)]
+    # TEST PRICE 110 RUB
+    prices = [LabeledPrice(label="Тестовая оплата", amount=110 * 100)]
     token = config.payment_token.get_secret_value()
     
-    print(f"DEBUG_INVOICE_MINIMAL: user={callback.from_user.id} token_len={len(token)}", flush=True)
+    print(f"DEBUG_INVOICE_TEST: user={callback.from_user.id} len={len(token)}", flush=True)
 
     try:
-        # MINIMAL POSSIBLE INVOICE
         await callback.message.answer_invoice(
-            title="Марафон МЕТОД",
-            description="Оплата участия в марафоне",
+            title="ТЕСТ ПЛАТЕЖА",
+            description="Проверка связи с ЮKassa (110 руб)",
             provider_token=token,
             currency="rub",
             prices=prices,
-            payload="marathon_payment_v3",
-            start_parameter="marathon_v3",
-            is_flexible=False,
-            max_tip_amount=0
+            payload="test_payment_v100",
+            start_parameter="test_pay_110"
         )
         print(f"DEBUG_INVOICE_OK: user={callback.from_user.id}", flush=True)
     except Exception as e:
@@ -76,5 +73,5 @@ async def process_pre_checkout(pre_checkout_query: PreCheckoutQuery):
         await pre_checkout_query.answer(ok=True)
         print(f"DEBUG_PRECHECKOUT_OK: user={pre_checkout_query.from_user.id}", flush=True)
     except Exception as e:
-        print(f"DEBUG_PRECHECKOUT_ERROR: user={pre_checkout_query.from_user.id} err={e}", flush=True)
-        await pre_checkout_query.answer(ok=False, error_message="Ошибка. Попробуйте еще раз.")
+        print(f"DEBUG_PRECHECKOUT_ERR: user={pre_checkout_query.from_user.id} err={e}", flush=True)
+        await pre_checkout_query.answer(ok=False, error_message="Ошибка. Попробуйте снова.")
