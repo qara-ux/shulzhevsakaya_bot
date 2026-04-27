@@ -185,7 +185,12 @@ async def yookassa_webhook(request: Request, db: Session = Depends(get_db)):
                     async with httpx.AsyncClient() as client:
                         await client.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", json={
                             "chat_id": user_id,
-                            "text": "🎉 Поздравляем! Оплата прошла успешно.\n\nТеперь вам открыт полный доступ к марафону «МЕТОД».\n\n👉 Ссылка на закрытую группу: https://t.me/+C-xOxlwd-MFmYjZi"
+                            "text": "🎉 Поздравляем! Оплата прошла успешно.\n\nТеперь вам открыт полный доступ к марафону «МЕТОД». Нажмите кнопку ниже, чтобы вступить в группу:",
+                            "reply_markup": {
+                                "inline_keyboard": [[
+                                    {"text": "🚀 Присоединиться к марафону", "url": "https://t.me/+C-xOxlwd-MFmYjZi"}
+                                ]]
+                            }
                         })
         return {"status": "ok"}
     except: return {"status": "error"}

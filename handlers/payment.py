@@ -42,10 +42,14 @@ async def check_payment_status(payment_id: str, chat_id: int, user_id: int, bot:
                 finally:
                     db.close()
                 
+                keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="🚀 Присоединиться к марафону", url="https://t.me/+C-xOxlwd-MFmYjZi")]
+                ])
+                
                 await bot.send_message(
                     chat_id, 
-                    "🎉 **Поздравляем! Оплата прошла успешно.**\n\nТеперь вам открыт полный доступ к марафону «МЕТОД».\n\n👉 Ссылка на закрытую группу: https://t.me/+C-xOxlwd-MFmYjZi",
-                    parse_mode="Markdown"
+                    "🎉 Поздравляем! Оплата прошла успешно.\n\nТеперь вам открыт полный доступ к марафону «МЕТОД». Нажмите кнопку ниже, чтобы вступить в группу:",
+                    reply_markup=keyboard
                 )
                 await track_event(user_id, "payment_success", "User", amount=5000)
                 await state.clear()
