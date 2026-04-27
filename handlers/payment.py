@@ -55,22 +55,6 @@ async def send_payment_invoice(callback: CallbackQuery, state: FSMContext, bot: 
     prices = [LabeledPrice(label="Участие в марафоне «МЕТОД»", amount=5000 * 100)]
     token = config.payment_token.get_secret_value()
     
-    provider_data = {
-        "receipt": {
-            "items": [
-                {
-                    "description": "Участие в марафоне «МЕТОД»",
-                    "quantity": "1.00",
-                    "amount": {
-                        "value": "5000.00",
-                        "currency": "RUB"
-                    },
-                    "vat_code": 4
-                }
-            ]
-        }
-    }
-
     print(f"📤 SENDING_INVOICE: user={callback.from_user.id} token_len={len(token)}", flush=True)
 
     try:
@@ -82,7 +66,6 @@ async def send_payment_invoice(callback: CallbackQuery, state: FSMContext, bot: 
             prices=prices,
             payload="marathon_payment_v10",
             start_parameter="marathon_v10",
-            provider_data=json.dumps(provider_data),
             need_email=True,
             send_email_to_provider=True
         )
