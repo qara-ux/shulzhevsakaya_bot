@@ -17,24 +17,23 @@ from handlers.dynamic import send_node
 router = Router()
 
 # Configure YooKassa
-Configuration.account_id = config.yookassa_shop_id
-Configuration.secret_key = config.yookassa_secret_key.get_secret_value()
+shop_id = config.yookassa_shop_id
+secret_key = config.yookassa_secret_key.get_secret_value()
+
+if shop_id and secret_key:
+    Configuration.account_id = shop_id
+    Configuration.secret_key = secret_key
+else:
+    print("⚠️ WARNING: YooKassa keys are MISSING in config!", flush=True)
 
 async def check_payment_status(payment_id: str, chat_id: int, user_id: int, bot: Bot, state: FSMContext):
-    """
-    Polls YooKassa API for payment status. 
-    Stops after success or 20 minutes (240 attempts * 5 sec).
-    """
     attempts = 0
     max_attempts = 240 
-    
     while attempts < max_attempts:
         try:
             payment = Payment.find_one(payment_id)
             if payment.status == 'succeeded':
                 print(f"✅ POLLING_SUCCESS: User {user_id} paid {payment_id}", flush=True)
-                
-                # Update DB
                 from dashboard.api.database import SessionLocal
                 from dashboard.api.models import UserRecord
                 db = SessionLocal()
@@ -46,7 +45,6 @@ async def check_payment_status(payment_id: str, chat_id: int, user_id: int, bot:
                 finally:
                     db.close()
                 
-                # Notify User
                 await bot.send_message(
                     chat_id, 
                     "🎉 **Поздравляем! Оплата прошла успешно.**\n\nТеперь вам открыт полный доступ к марафону «МЕТОД».\n\n👉 Ссылка на закрытую группу: https://t.me/+C-xOxlwd-MFmYjZi",
@@ -56,17 +54,11 @@ async def check_payment_status(payment_id: str, chat_id: int, user_id: int, bot:
                 await state.clear()
                 cancel_reminders(user_id)
                 return True
-            
-            if payment.status == 'canceled':
-                print(f"❌ POLLING_CANCELED: {payment_id}", flush=True)
-                return False
-                
+            if payment.status == 'canceled': return False
         except Exception as e:
             print(f"⚠️ POLLING_ERROR: {e}", flush=True)
-            
         attempts += 1
-        await asyncio.sleep(5) # Wait 5 seconds between checks
-    
+        await asyncio.sleep(5)
     return False
 
 @router.callback_query(F.data == "go_to_payment")
@@ -74,6 +66,10 @@ async def send_payment_link(callback: CallbackQuery, state: FSMContext, bot: Bot
     await track_event(callback.from_user.id, "click_pay", callback.from_user.username)
     await callback.answer()
     
+    if not shop_id or not secret_key:
+        await callback.message.answer("⚠️ Сервис оплаты еще не настроен. Проверьте переменные окружения.")
+        return
+
     try:
         payment = Payment.create({
             "amount": {"value": "5000.00", "currency": "RUB"},
@@ -97,23 +93,22 @@ async def send_payment_link(callback: CallbackQuery, state: FSMContext, bot: Bot
         ])
 
         await callback.message.answer(
-            "🚀 **Почти готово!**\n\nНажмите на кнопку ниже, чтобы перейти на защищенную страницу оплаты ЮKassa.\n\nБот автоматически увидит вашу оплату и пришлет ссылку на группу в течение нескольких секунд после завершения.",
+            "🚀 **Почти готово!**\n\nНажмите на кнопку ниже, чтобы перейти на страницу оплаты ЮKassa.\n\nТам вы сможете выбрать **СБП**, карту или другой удобный способ.",
             reply_markup=keyboard,
             parse_mode="Markdown"
         )
         
-        # Start background polling
-        asyncio.create_task(check_payment_status(
-            payment.id, 
-            callback.message.chat.id, 
-            callback.from_user.id, 
-            bot, 
-            state
-        ))
-        
+        asyncio.create_task(check_payment_status(payment.id, callback.message.chat.id, callback.from_user.id, bot, state))
         await state.set_state(MarathonState.waiting_for_payment)
         await track_event(callback.from_user.id, "payment_started", callback.from_user.username)
 
     except Exception as e:
         print(f"❌ YOOKASSA_API_ERROR: {e}", flush=True)
-        await callback.message.answer("⚠️ Сервис оплаты временно недоступен. Пожалуйста, попробуйте позже.")
+        await callback.message.answer("⚠️ Ошибка создания платежа. Попробуйте еще раз или напишите нам.")
+
+@router.message(F.successful_payment, StateFilter("*"))
+async def process_successful_payment(message: Message, state: FSMContext):
+    user_id = message.from_user.id
+    await send_node(message, "success", state)
+    await state.clear()
+    cancel_reminders(user_id)
