@@ -155,16 +155,18 @@ async def send_direct(req: Dict[str, Any], db: Session = Depends(get_db)):
         except Exception as e:
             raise HTTPException(500, detail=str(e))
 
-@app.get("/api/broadcasts")
-async def get_broadcasts(db: Session = Depends(get_db)):
-    return db.query(ScheduledBroadcast).order_by(ScheduledBroadcast.created_at.desc()).all()
+# --- Planner Routes (stable frontend uses /api/planner) ---
+@app.get("/api/planner/list")
+async def planner_list(db: Session = Depends(get_db)):
+    return db.query(ScheduledBroadcast).filter(ScheduledBroadcast.is_active == True).order_by(ScheduledBroadcast.send_at.asc()).all()
 
-@app.post("/api/broadcasts")
-async def create_broadcast(req: BroadcastRequest, db: Session = Depends(get_db)):
+@app.post("/api/planner")
+async def planner_create(req: BroadcastRequest, db: Session = Depends(get_db)):
     new_task = ScheduledBroadcast(
         message=req.message,
         filter_type=req.filter_type,
         send_at=req.send_at,
+        end_at=req.end_at,
         is_recurring=req.is_recurring,
         recurrence_config=req.recurrence
     )
@@ -172,10 +174,20 @@ async def create_broadcast(req: BroadcastRequest, db: Session = Depends(get_db))
     db.commit()
     return {"status": "ok", "id": new_task.id}
 
+@app.delete("/api/planner/{task_id}")
+async def planner_delete(task_id: int, db: Session = Depends(get_db)):
+    db.query(ScheduledBroadcast).filter(ScheduledBroadcast.id == task_id).delete()
+    db.commit()
+    return {"status": "ok"}
+
+# --- Logs Route (stable frontend uses /api/logs/{user_id}) ---
+@app.get("/api/logs/{user_id}")
+async def get_user_logs_v1(user_id: int, db: Session = Depends(get_db)):
+    return db.query(AnalyticsEvent).filter(AnalyticsEvent.user_id == user_id).order_by(AnalyticsEvent.created_at.desc()).limit(100).all()
+
 @app.get("/api/users/{user_id}/logs")
-async def get_user_logs(user_id: int, db: Session = Depends(get_db)):
-    logs = db.query(AnalyticsEvent).filter(AnalyticsEvent.user_id == user_id).order_by(AnalyticsEvent.created_at.desc()).limit(100).all()
-    return logs
+async def get_user_logs_v2(user_id: int, db: Session = Depends(get_db)):
+    return db.query(AnalyticsEvent).filter(AnalyticsEvent.user_id == user_id).order_by(AnalyticsEvent.created_at.desc()).limit(100).all()
 
 @app.post("/api/danger/reset")
 async def reset_data(db: Session = Depends(get_db)):
@@ -194,21 +206,32 @@ async def get_nodes(db: Session = Depends(get_db)):
     return db.query(BotNode).all()
 
 @app.post("/api/nodes")
-async def save_node(node: dict, db: Session = Depends(get_db)):
+async def create_node(node: dict, db: Session = Depends(get_db)):
     db_node = db.query(BotNode).filter(BotNode.id == node['id']).first()
     if not db_node:
         db_node = BotNode(id=node['id'])
         db.add(db_node)
-    
     db_node.title = node.get('title', db_node.title)
     db_node.content = node.get('content', db_node.content)
     db_node.buttons = node.get('buttons', db_node.buttons)
-    db_node.node_type = node.get('node_type', db_node.node_type)
-    db_node.funnel_stage = node.get('funnel_stage', db_node.funnel_stage)
-    db_node.delay = node.get('delay', db_node.delay)
     db_node.x = node.get('x', db_node.x)
     db_node.y = node.get('y', db_node.y)
-    
+    db_node.follow_up_delay = node.get('follow_up_delay', db_node.follow_up_delay)
+    db_node.follow_up_node = node.get('follow_up_node', db_node.follow_up_node)
+    db_node.is_start_node = node.get('is_start_node', db_node.is_start_node)
+    db.commit()
+    return {"status": "ok"}
+
+@app.put("/api/nodes/{node_id}")
+async def update_node(node_id: str, node: dict, db: Session = Depends(get_db)):
+    db_node = db.query(BotNode).filter(BotNode.id == node_id).first()
+    if not db_node: raise HTTPException(404)
+    db_node.title = node.get('title', db_node.title)
+    db_node.content = node.get('content', db_node.content)
+    db_node.buttons = node.get('buttons', db_node.buttons)
+    db_node.follow_up_delay = node.get('follow_up_delay', db_node.follow_up_delay)
+    db_node.follow_up_node = node.get('follow_up_node', db_node.follow_up_node)
+    db_node.is_start_node = node.get('is_start_node', db_node.is_start_node)
     db.commit()
     return {"status": "ok"}
 
@@ -218,17 +241,8 @@ async def delete_node(node_id: str, db: Session = Depends(get_db)):
     db.commit()
     return {"status": "ok"}
 
-@app.post("/api/nodes/{node_id}/position")
-async def update_node_position(node_id: str, pos: dict, db: Session = Depends(get_db)):
-    db_node = db.query(BotNode).filter(BotNode.id == node_id).first()
-    if db_node:
-        db_node.x = pos.get('x', db_node.x)
-        db_node.y = pos.get('y', db_node.y)
-        db.commit()
-    return {"status": "ok"}
-
 @app.put("/api/nodes/{node_id}/position")
-async def update_node_position(node_id: str, pos: Dict[str, int], db: Session = Depends(get_db)):
+async def update_node_pos(node_id: str, pos: Dict[str, int], db: Session = Depends(get_db)):
     node = db.query(BotNode).filter(BotNode.id == node_id).first()
     if node:
         node.x = pos["x"]

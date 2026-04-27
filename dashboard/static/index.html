@@ -3,24 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>REGINA | Ultimate Funnel Dashboard</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow/dist/drawflow.min.css">
-    <script src="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow/dist/drawflow.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Flatpickr for advanced scheduling -->
+    <title>METOD | CRM Dashboard</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    
     <link rel="stylesheet" href="/static/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Roboto+Mono&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <header class="top-nav">
         <div class="nav-content">
             <div class="logo">
-                <div class="logo-icon"></div>
                 <span class="logo-text">REGINA</span>
+                <span class="badge">v1.1</span>
             </div>
             <nav class="nav-links">
                 <button onclick="showTab('overview')" class="nav-btn active" data-i18n="nav_overview">Обзор</button>
@@ -30,13 +25,14 @@
                 <button onclick="showTab('constructor')" class="nav-btn" data-i18n="nav_constructor">Конструктор</button>
             </nav>
             <div class="header-actions">
+                <button onclick="resetData()" class="nav-btn" style="color: #ff4444; border: 1px solid rgba(255,68,68,0.2); margin-right: 15px;">Reset Data</button>
                 <div class="lang-switcher">
-                    <button id="lang-ru" onclick="setLanguage('ru')" class="active">RU</button>
+                    <button id="lang-ru" onclick="setLanguage('ru')">RU</button>
                     <button id="lang-en" onclick="setLanguage('en')">EN</button>
                 </div>
                 <div class="status-indicator">
                     <div class="status-dot"></div>
-                    <span class="pulse-text">LIVE</span>
+                    <span>LIVE</span>
                 </div>
             </div>
         </div>
@@ -44,239 +40,261 @@
 
     <main class="dashboard-wrapper">
         <div class="content-area">
+
+<style>
+.lang-switcher button.active {
+    background: rgba(255,255,255,0.1);
+    color: white !important;
+}
+.status-dot {
+    animation: livePulse 2s ease-in-out infinite;
+}
+@keyframes livePulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 8px #22c55e; }
+    50% { opacity: 0.4; box-shadow: 0 0 16px #22c55e; }
+}
+</style>
+
+        <section id="overview-tab" class="tab-content active">
+            <div class="premium-stats">
+                <div class="p-card">
+                    <span class="p-label" data-i18n="stat_volume">Volume</span>
+                    <div class="p-value" id="revenue">0₽</div>
+                </div>
+                <div class="p-card">
+                    <span class="p-label" data-i18n="stat_users">Total Users</span>
+                    <div class="p-value" id="total_users">0</div>
+                </div>
+                <div class="p-card">
+                    <span class="p-label" data-i18n="stat_conv">Conversion</span>
+                    <div class="p-value" id="conversion" style="color:var(--warning)">0%</div>
+                </div>
+            </div>
             
-            <!-- OVERVIEW TAB -->
-            <section id="overview-tab" class="tab-content active">
-                <div class="premium-stats">
-                    <div class="p-card stat-purple">
-                        <div class="card-glow"></div>
-                        <span class="p-label" data-i18n="stat_volume">Volume</span>
-                        <div class="p-value" id="revenue">0₽</div>
-                        <div class="stat-trend positive">+12.5%</div>
-                    </div>
-                    <div class="p-card">
-                        <span class="p-label" data-i18n="stat_users">Total Users</span>
-                        <div class="p-value" id="total_users">0</div>
-                    </div>
-                    <div class="p-card">
-                        <span class="p-label" data-i18n="stat_conv">Conversion</span>
-                        <div class="p-value" id="conversion">0%</div>
-                        <div class="stat-sub">Global average</div>
+            <div class="analytics-layout">
+                <div class="funnel-container">
+                    <h3 style="font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted); margin-bottom:32px;" data-i18n="funnel_title">Conversion Funnel</h3>
+                    <div id="visual-funnel" class="visual-funnel">
+                        <!-- Funnel stages will be rendered here via JS -->
                     </div>
                 </div>
-                
-                <div class="analytics-main-grid">
-                    <div class="chart-container large-card">
-                        <div class="card-header-actions">
-                            <h3 data-i18n="funnel_growth">Funnel Growth Analytics</h3>
-                            <div class="time-filters">
-                                <button class="filter-chip active">7D</button>
-                                <button class="filter-chip">30D</button>
-                                <button class="filter-chip">ALL</button>
-                            </div>
-                        </div>
-                        <div class="chart-wrapper">
-                            <canvas id="funnelChart"></canvas>
-                        </div>
-                    </div>
-                    
-                    <div class="funnel-container large-card">
-                        <h3 data-i18n="funnel_title">Conversion Funnel</h3>
-                        <div id="visual-funnel" class="visual-funnel-premium">
-                            <!-- Injected by JS -->
-                        </div>
-                    </div>
+                <div class="chart-container">
+                    <canvas id="funnelChart"></canvas>
                 </div>
-            </section>
+            </div>
+        </section>
 
-            <!-- CLIENTS TAB -->
-            <section id="clients-tab" class="tab-content">
-                <div class="card-header">
-                    <h2 data-i18n="crm_title">Customer Intelligence</h2>
-                    <div class="search-wrapper">
-                        <input type="text" id="crm-search" oninput="filterUsers()" placeholder="Search by name, ID or email...">
-                        <svg class="search-icon" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                    </div>
+        <section id="clients-tab" class="tab-content">
+            <div class="card-header">
+                <h2 data-i18n="crm_title">База клиентов</h2>
+                <div class="search-wrapper">
+                    <input type="text" id="crm-search" data-i18n-placeholder="crm_search" placeholder="Поиск по клиентам...">
                 </div>
-                <div class="p-card no-padding overflow-hidden">
-                    <table class="premium-table" id="usersTable">
-                        <thead>
-                            <tr>
-                                <th data-i18n="table_user">User</th>
-                                <th data-i18n="table_email">Email</th>
-                                <th data-i18n="table_status">Status</th>
-                                <th style="text-align: right;">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
+            </div>
+            <div class="p-card" style="padding: 0; overflow: hidden;">
+                <table class="data-table" id="usersTable">
+                    <thead>
+                        <tr>
+                            <th data-i18n="table_user">User</th>
+                            <th data-i18n="table_email">Email</th>
+                            <th data-i18n="table_status">Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- MODAL FOR DIRECT MESSAGE -->
+        <div id="dm-modal" class="modal">
+            <div class="modal-content p-card">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <h3 style="font-size:16px;">Direct Message to <span id="dm-username">@user</span></h3>
+                    <button onclick="closeDM()" class="tab-btn">✕</button>
                 </div>
-            </section>
-
-            <!-- PLANNER TAB (Advanced Version Restored) -->
-            <section id="planner-tab" class="tab-content">
-                <div class="planner-layout-advanced">
-                    <div class="planner-sidebar-controls">
-                        <div class="planner-card glass-card">
-                            <h3>Create Broadcast</h3>
-                            <div class="advanced-form">
-                                <div class="form-group">
-                                    <label>Target Audience</label>
-                                    <div class="segment-selector">
-                                        <button class="seg-btn active" data-filter="all">All</button>
-                                        <button class="seg-btn" data-filter="paid">Paid</button>
-                                        <button class="seg-btn" data-filter="free">Free</button>
-                                    </div>
-                                </div>
-                                <div class="form-group">
-                                    <label>Message Content</label>
-                                    <textarea id="plan-msg" placeholder="Write your broadcast message..."></textarea>
-                                </div>
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label>Schedule Date & Time</label>
-                                        <input type="text" id="plan-date" placeholder="Select date/time" class="datepicker-input">
-                                    </div>
-                                </div>
-                                <button onclick="submitAdvancedPlan()" class="premium-action-btn">Schedule Message</button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="planner-main-view">
-                        <div class="planner-card no-padding overflow-hidden">
-                            <div class="card-header-actions padding-24">
-                                <h3>Scheduled Queue</h3>
-                                <span class="badge-count" id="queue-count">0 messages</span>
-                            </div>
-                            <div id="plan-queue" class="advanced-queue-list">
-                                <!-- Injected by JS -->
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- LOGS TAB (Restored) -->
-            <section id="logs-tab" class="tab-content">
-                <div class="logs-layout-v2">
-                    <aside class="logs-users-sidebar">
-                        <div class="sidebar-search">
-                            <input type="text" id="log-user-search" oninput="filterLogUsers()" placeholder="Search users...">
-                        </div>
-                        <div id="log-user-list" class="log-sidebar-list">
-                            <!-- Users injected here -->
-                        </div>
-                    </aside>
-                    <div class="logs-feed-main">
-                        <div id="log-header" class="log-feed-header">
-                            <div class="selected-user-info">
-                                <h3 id="selected-user-name">Activity Feed</h3>
-                                <p id="selected-user-id">Select a customer to view their journey</p>
-                            </div>
-                            <div class="log-actions">
-                                <button class="icon-btn" onclick="refreshLogs()"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>
-                            </div>
-                        </div>
-                        <div id="log-timeline" class="premium-timeline">
-                            <div class="empty-state-v2">
-                                <div class="empty-icon">📂</div>
-                                <p>No logs selected</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- CONSTRUCTOR TAB -->
-            <section id="constructor-tab" class="tab-content">
-                <div class="constructor-layout-v2">
-                    <div id="drawflow">
-                        <div class="canvas-overlay-controls">
-                            <div class="zoom-group">
-                                <button onclick="editor.zoom_in()">+</button>
-                                <button onclick="editor.zoom_out()">-</button>
-                                <button onclick="editor.zoom_reset()">1:1</button>
-                            </div>
-                            <button onclick="addNewNode()" class="btn-glow-primary" data-i18n="btn_add_node">Create Block</button>
-                        </div>
-                    </div>
-                    
-                    <aside id="node-sidepanel" class="sidepanel-v2">
-                        <div class="side-header">
-                            <h3 data-i18n="node_editor">Node Settings</h3>
-                            <button class="close-btn-v2" onclick="closeSidepanel()">✕</button>
-                        </div>
-                        <div class="side-body">
-                            <div class="input-stack">
-                                <div class="field">
-                                    <label>ID / Identifier</label>
-                                    <input type="text" id="edit-node-id" readonly>
-                                </div>
-                                <div class="field">
-                                    <label>Step Title</label>
-                                    <input type="text" id="edit-node-title" placeholder="e.g. 1. Introduction">
-                                </div>
-                                <div class="field">
-                                    <label>Message Text</label>
-                                    <textarea id="edit-node-content" placeholder="Type what the bot should say..."></textarea>
-                                </div>
-                                <div class="field">
-                                    <label>Node Logic Type</label>
-                                    <div class="custom-toggle">
-                                        <button class="toggle-opt active" id="opt-main" onclick="setNodeType('main')">Main Step</button>
-                                        <button class="toggle-opt" id="opt-rem" onclick="setNodeType('reminder')">Follow-up</button>
-                                    </div>
-                                    <input type="hidden" id="edit-node-type" value="main">
-                                </div>
-                                <div id="reminder-extra" style="display:none;">
-                                    <div class="field">
-                                        <label>Delay (e.g. 2h, 1d)</label>
-                                        <input type="text" id="edit-node-delay" placeholder="2h">
-                                    </div>
-                                </div>
-                                <div class="field">
-                                    <label>Funnel Analytics Mapping</label>
-                                    <select id="edit-funnel-stage" class="premium-select">
-                                        <option value="none">Omit from analytics</option>
-                                        <option value="starts">Stage 1: Starts</option>
-                                        <option value="engagement">Stage 2: Engagement</option>
-                                        <option value="leads">Stage 3: Leads</option>
-                                        <option value="payments">Stage 4: Payments</option>
-                                        <option value="success">Stage 5: Success</option>
-                                    </select>
-                                </div>
-                            </div>
-                            
-                            <div class="buttons-editor-v2">
-                                <div class="editor-header">
-                                    <label>Interaction Buttons</label>
-                                    <button class="add-btn" onclick="addNodeButton()">Add Button</button>
-                                </div>
-                                <div id="node-buttons-list" class="btn-list-scroll"></div>
-                            </div>
-                        </div>
-                        <div class="side-footer">
-                            <button class="btn-delete" onclick="deleteCurrentNode()">Delete Block</button>
-                            <button class="btn-save" onclick="saveNodeData()">Apply Changes</button>
-                        </div>
-                    </aside>
-                </div>
-            </section>
-
-        </div>
-    </main>
-
-    <!-- MODALS -->
-    <div id="p-modal" class="modal-blur">
-        <div class="modal-glass-content">
-            <h3 id="p-modal-title">Confirm Action</h3>
-            <p id="p-modal-text"></p>
-            <div class="modal-actions">
-                <button onclick="closePModal()" class="btn-cancel">Cancel</button>
-                <button id="p-modal-confirm" class="btn-confirm">Proceed</button>
+                <textarea id="dm-text" placeholder="Type your message here..." style="width:100%; height:120px; background:#000; border:1px solid var(--border); color:white; border-radius:12px; padding:16px; margin-bottom:20px; font-family:inherit; resize:none;"></textarea>
+                <button onclick="sendDM()" class="p-card" style="width:100%; padding:14px; background:#22c55e; color:black; font-weight:700; border-radius:12px; cursor:pointer;">Send Message</button>
             </div>
         </div>
-    </div>
+
+        <section id="planner-tab" class="tab-content">
+            <div class="planner-layout">
+                <div class="planner-card">
+                    <div class="card-header"><h3>Create Broadcast</h3></div>
+                    <div class="planner-form">
+                        <div class="form-group">
+                            <label>Message Content</label>
+                            <textarea id="plan-msg" placeholder="What would you like to send?"></textarea>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Target Audience</label>
+                                <div class="custom-select-wrapper" onclick="toggleCustomSelect('plan-filter-select')">
+                                    <div class="custom-select" id="plan-filter-selected">
+                                        <span>Everyone</span>
+                                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                                    </div>
+                                    <div class="select-options" id="plan-filter-select">
+                                        <div class="select-option selected" onclick="selectOption('plan-filter', 'all', 'Everyone')">Everyone</div>
+                                        <div class="select-option" onclick="selectOption('plan-filter', 'paid', 'Paid Customers')">Paid Customers</div>
+                                        <div class="select-option" onclick="selectOption('plan-filter', 'unpaid', 'Leads (Unpaid)')">Leads (Unpaid)</div>
+                                    </div>
+                                    <input type="hidden" id="plan-filter" value="all">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Schedule Type</label>
+                                <div class="custom-select-wrapper" onclick="toggleCustomSelect('plan-type-select')">
+                                    <div class="custom-select" id="plan-type-selected">
+                                        <span>Send Once</span>
+                                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                                    </div>
+                                    <div class="select-options" id="plan-type-select">
+                                        <div class="select-option selected" onclick="selectOption('plan-type', 'once', 'Send Once')">Send Once</div>
+                                        <div class="select-option" onclick="selectOption('plan-type', 'weekly', 'Recurring Weekly')">Recurring Weekly</div>
+                                    </div>
+                                    <input type="hidden" id="plan-type" value="once">
+                                </div>
+                            </div>
+                        </div>
+                        <div id="once-fields" class="form-group">
+                            <label>Send Time & Date</label>
+                            <div class="form-row">
+                                <div class="field-with-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                                    <input type="text" id="plan-date-picker" placeholder="Select Date">
+                                </div>
+                                <div class="field-with-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                    <input type="text" id="plan-time-picker" placeholder="Select Time">
+                                </div>
+                            </div>
+                        </div>
+                        <div id="weekly-fields" style="display:none;" class="form-group">
+                            <div class="form-row" style="margin-bottom:0;">
+                                <div class="form-group">
+                                    <label>Execution Time</label>
+                                    <div class="field-with-icon">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                        <input type="text" id="plan-time-freq" value="12:00" placeholder="HH:MM">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Stop Date (Optional)</label>
+                                    <div class="field-with-icon">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                                        <input type="text" id="plan-end" placeholder="No Expiration">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group" style="margin-top:12px;">
+                                <label>Active Days</label>
+                                <div class="day-picker">
+                                    <label class="day-pill"><input type="checkbox" value="0"><span>MON</span></label>
+                                    <label class="day-pill"><input type="checkbox" value="1"><span>TUE</span></label>
+                                    <label class="day-pill"><input type="checkbox" value="2"><span>WED</span></label>
+                                    <label class="day-pill"><input type="checkbox" value="3"><span>THU</span></label>
+                                    <label class="day-pill"><input type="checkbox" value="4"><span>FRI</span></label>
+                                    <label class="day-pill"><input type="checkbox" value="5"><span>SAT</span></label>
+                                    <label class="day-pill"><input type="checkbox" value="6"><span>SUN</span></label>
+                                </div>
+                            </div>
+                        </div>
+                        <button onclick="submitPlan()" class="action-btn">Schedule Broadcast</button>
+                    </div>
+                </div>
+
+                <div class="planner-card">
+                    <div class="card-header"><h3>Upcoming Queue</h3></div>
+                    <div id="plan-queue" class="plan-list"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- LOGS TAB -->
+        <section id="logs-tab" class="tab-content">
+            <div class="logs-layout">
+                <div class="logs-sidebar">
+                    <div class="search-box">
+                        <input type="text" id="log-user-search" placeholder="Search by @username..." oninput="filterLogUsers()">
+                    </div>
+                    <div id="log-user-list" class="log-user-list">
+                        <!-- Users will be loaded here -->
+                    </div>
+                </div>
+                <div class="logs-main">
+                    <div id="log-header" class="log-header">
+                        <h3>Select a user to view logs</h3>
+                        <div class="log-filters" style="display:none;" id="log-filter-container">
+                            <input type="date" id="log-date-filter" onchange="applyLogDateFilter()">
+                            <button onclick="clearLogDateFilter()" class="clear-btn">Clear</button>
+                        </div>
+                    </div>
+                    <div id="log-timeline" class="log-timeline">
+                        <!-- Timeline items -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- BOT CONSTRUCTOR (NEW VISUAL FLOW) -->
+        <section id="constructor-tab" class="tab-content" style="padding:0;">
+            <div id="flow-canvas">
+                <svg id="flow-svg" width="100%" height="100%" style="position:absolute; top:0; left:0; pointer-events:none; z-index:5;">
+                    <defs>
+                        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                            <polygon points="0 0, 10 3.5, 0 7" fill="rgba(255,255,255,0.2)"/>
+                        </marker>
+                    </defs>
+                </svg>
+                <div id="flow-nodes" style="position:relative; width:100%; height:100%; z-index:10;"></div>
+            </div>
+
+            <!-- Side Panel Editor -->
+            <div id="node-editor" class="side-panel">
+                <div class="side-panel-header">
+                    <h2 id="edit-node-id" style="font-size:14px; color:var(--text-muted); font-family:var(--font-mono)"></h2>
+                    <button onclick="closeEditor()" class="close-btn">✕</button>
+                </div>
+                <div style="padding:32px;">
+                    <div class="form-group"><label>Internal Title</label><input type="text" id="edit-node-title"></div>
+                    <div class="form-group"><label>Message content</label><textarea id="edit-node-content" style="height:150px;"></textarea></div>
+                    
+                    <div id="buttons-editor" class="form-group">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
+                            <label>Buttons</label>
+                            <button onclick="addButton()" style="background:none; border:none; color:var(--text-muted); font-size:10px; cursor:pointer;">+ Add Button</button>
+                        </div>
+                        <div id="buttons-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+                    </div>
+
+                    <div class="form-group" style="margin-top:24px; padding-top:24px; border-top:1px solid var(--border);">
+                        <label style="color:var(--warning); display:flex; align-items:center; gap:8px;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            Follow-up Automation
+                        </label>
+                        <div style="margin-top:12px;">
+                            <label style="font-size:9px; color:var(--text-muted);">Delay (minutes)</label>
+                            <input type="number" id="edit-follow-up-delay" style="width:100%; background:none; border:none; color:white; border-bottom:1px solid var(--border); padding:8px 0; margin-bottom:16px;">
+                            
+                            <label style="font-size:9px; color:var(--text-muted);">Target Follow-up Block</label>
+                            <select id="edit-follow-up-node" style="width:100%; background:#000; color:white; border:1px solid var(--border); border-radius:8px; padding:10px;">
+                                <option value="">Disabled</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-top:32px;">
+                        <button class="action-btn" onclick="saveNode()">Save Stage</button>
+                    </div>
+                </div>
+            </div>
+            
+            <button onclick="createNewNode()" style="position:absolute; bottom:32px; right:32px; width:56px; height:56px; border-radius:50%; background:var(--warning); color:black; border:none; cursor:pointer; box-shadow:0 10px 30px rgba(0,0,0,0.4); z-index:1001; font-size:24px; font-weight:bold;">+</button>
+        </section>
+        </div>
+    </main>
 
     <script src="/static/app.js"></script>
 </body>
