@@ -54,6 +54,25 @@ from services.scheduler import scheduler
 try:
     from dashboard.api.database import engine, Base, SessionLocal
     from dashboard.api.models import AnalyticsEvent, UserRecord, ScheduledBroadcast, BotNode
+    from sqlalchemy import text
+    
+    # MIGRATION: Add new columns if they don't exist
+    with engine.connect() as conn:
+        new_cols = [
+            ("node_type", "VARCHAR DEFAULT 'main'"),
+            ("funnel_stage", "VARCHAR DEFAULT 'none'"),
+            ("delay", "VARCHAR"),
+            ("parent_node_id", "VARCHAR"),
+            ("x", "FLOAT DEFAULT 100.0"),
+            ("y", "FLOAT DEFAULT 100.0")
+        ]
+        for name, type_ in new_cols:
+            try: 
+                conn.execute(text(f"ALTER TABLE bot_nodes ADD COLUMN {name} {type_}"))
+                logging.info(f"Migration: Added column {name}")
+            except: pass
+        conn.commit()
+
     Base.metadata.create_all(bind=engine)
     logging.info("Database tables initialized.")
     
@@ -74,56 +93,42 @@ try:
                 "title": "0 ENTRY (вход)",
                 "content": "🌸 Весенний марафон «МЕТОД»\n\nСтарт — 11 мая\nФормат — онлайн\n4 недели трансформации\n\nГотова присоединиться?",
                 "buttons": [{"text": "✅ Да, готова!", "next_node": "intent"}, {"text": "🔥 Что я получу?", "next_node": "value"}],
-                "is_start_node": True, "x": 115, "y": 323
+                "is_start_node": True, "node_type": "main", "funnel_stage": "starts", "x": 115, "y": 323
             },
             {
                 "id": "value",
                 "title": "0.1 VALUE BLOCK",
                 "content": "Ты получаешь 👇\n\n🌿 4 недели тренировок\nПрокачка всего тела, укрепление, коррекция фигуры\nОсобый упор на ягодичные мышцы\n\n🎥 Удобный формат\nПросто включай видео и повторяй за тренером\n\n📅 5 отдельных каналов:\n1️⃣ Неделя 1\n2️⃣ Неделя 2\n3️⃣ Неделя 3\n4️⃣ Неделя 4\n\n🍴 Питание\nПолноценные рационы на каждый день\n\nГотова присоединиться?",
                 "buttons": [{"text": "✅ Да, готова", "next_node": "intent"}],
-                "is_start_node": False, "x": 463, "y": 140
+                "is_start_node": False, "node_type": "main", "funnel_stage": "engagement", "x": 463, "y": 140
             },
             {
                 "id": "intent",
                 "title": "1. INTENT CONFIRMATION",
                 "content": "Отлично 👇\n\nСтоимость участия:\n5000₽\n\nДоступ открывается сразу после оплаты",
                 "buttons": [{"text": "💳 Перейти к оплате", "next_node": "pay"}],
-                "is_start_node": False, "x": 843, "y": 301
+                "is_start_node": False, "node_type": "main", "funnel_stage": "leads", "x": 843, "y": 301
             },
             {
-                "id": "contact",
+                "id": "pay",
                 "title": "2. PAYMENT INTENT",
                 "content": "Чтобы подготовить чек на оплату, укажите вашу почту \n\nВведите email 👇",
                 "buttons": [],
-                "is_start_node": False, "x": 1151, "y": 534
-            },
-            {
-                "id": "checkout",
-                "title": "3. CHECKOUT",
-                "content": "Остался последний шаг 🙌\n\nПереходи к оплате 👇",
-                "buttons": [{"text": "🔗 Оплатить участие (5000₽)", "next_node": "success"}],
-                "is_start_node": False, "x": 1497, "y": 299
+                "is_start_node": False, "node_type": "main", "funnel_stage": "payments", "x": 1151, "y": 534
             },
             {
                 "id": "success",
                 "title": "4. SUCCESS",
                 "content": "Поздравляю! 💥\n\nОплата прошла успешно, теперь переходи в закрытую группу и ожидай начало марафона",
                 "buttons": [{"text": "Присоединиться 🚀", "url": "https://t.me/+C-xOxlwd-MFmYjZi"}],
-                "is_start_node": False, "x": 1897, "y": 298
+                "is_start_node": False, "node_type": "main", "funnel_stage": "success", "x": 1897, "y": 298
             },
             {
                 "id": "rem_email",
                 "title": "Дожим: Почта",
                 "content": "Ты не завершила регистрацию 👇\nЗакрепить за тобой место?",
                 "buttons": [{"text": "💳 Перейти к оплате", "next_node": "pay"}],
-                "is_start_node": False, "x": 0, "y": 0
-            },
-            {
-                "id": "rem_pay",
-                "title": "Дожим: Оплата",
-                "content": "Ты почти в марафоне 👇\nМеста ограничены. Попробуем еще раз?",
-                "buttons": [{"text": "💳 Перейти к оплате", "next_node": "pay"}],
-                "is_start_node": False, "x": 0, "y": 0
+                "is_start_node": False, "node_type": "reminder", "delay": "2h", "parent_node_id": "pay", "x": 1300, "y": 700
             }
         ]
         for n_data in nodes_data:
