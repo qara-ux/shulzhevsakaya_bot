@@ -193,6 +193,18 @@ async def main():
         await bot.session.close()
 
 if __name__ == "__main__":
+    # Prevent local runs from conflicting with Railway
+    if not os.getenv("RAILWAY_ENVIRONMENT") and not os.getenv("PORT"):
+        print("\n" + "!"*60)
+        print("⚠️  LOCAL RUN DETECTED: Bot polling is DISABLED locally.")
+        print("This is to prevent 'ConflictError' with your Railway instance.")
+        print("To run locally anyway, set RAILWAY_ENVIRONMENT=true in your .env")
+        print("!"*60 + "\n")
+        
+        # We still allow the dashboard/API to run if needed, 
+        # but here we just exit to be safe as per user request.
+        sys.exit(0)
+
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
