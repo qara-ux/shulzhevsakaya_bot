@@ -83,6 +83,7 @@ async def process_email_and_create_payment(message: Message, state: FSMContext, 
     finally:
         db.close()
 
+    await track_event(user_id, "email_captured", message.from_user.username, data={"email": email})
     await message.answer("⏳ Генерирую ссылку на оплату...")
 
     try:
@@ -125,7 +126,7 @@ async def process_email_and_create_payment(message: Message, state: FSMContext, 
         
         asyncio.create_task(check_payment_status(payment.id, message.chat.id, user_id, bot, state))
         await state.set_state(MarathonState.waiting_for_payment)
-        await track_event(user_id, "payment_started", message.from_user.username)
+        await track_event(user_id, "payment_started", message.from_user.username, amount=5000)
 
     except Exception as e:
         print(f"❌ YOOKASSA_API_ERROR: {e}", flush=True)
