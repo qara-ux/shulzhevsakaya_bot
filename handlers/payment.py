@@ -21,7 +21,6 @@ async def process_successful_payment(message: Message, state: FSMContext):
     
     try:
         # 1. IMMEDIATE RESPONSE: Send success node to user
-        # We do this FIRST so the user isn't left waiting
         await send_node(message, "success", state)
         await state.clear()
         cancel_reminders(user_id)
@@ -54,19 +53,15 @@ async def process_successful_payment(message: Message, state: FSMContext):
             
     except Exception as e:
         logging.error(f"🚨 CRITICAL error in payment handler: {e}", exc_info=True)
-        # Final fallback to ensure the user gets something
         await message.answer("🎉 Оплата прошла! \n\nВот ваша ссылка: https://t.me/+C-xOxlwd-MFmYjZi")
 
 @router.message(F.text, StateFilter(MarathonState.waiting_for_email))
 async def process_email_legacy(message: Message, state: FSMContext, bot: Bot):
-    # This handles the case if a DB node still asks for email
     email = message.text.strip()
-    from utils.validators import is_valid_email
     if not is_valid_email(email):
         await message.answer("❌ Некорректный email. Попробуйте еще раз или нажмите кнопку оплаты.")
         return
 
-    # Save email and show invoice immediately
     from dashboard.api.database import SessionLocal
     from dashboard.api.models import UserRecord
     db = SessionLocal()
@@ -78,13 +73,16 @@ async def process_email_legacy(message: Message, state: FSMContext, bot: Bot):
     
     await message.answer("Email принят! Выставляю счет...")
     
-    # Trigger the same invoice logic
     prices = [LabeledPrice(label="Участие в марафоне «МЕТОД»", amount=5000 * 100)]
+    
+    # Debug logging
+    logging.info(f"📤 LEGACY_INVOICE: user={message.from_user.id}, token_len={len(config.payment_token.get_secret_value())}")
+
     await message.answer_invoice(
         title="Марафон «МЕТОД»",
         description="Полный доступ к весеннему марафону трансформации (4 недели)",
         provider_token=config.payment_token.get_secret_value(),
-        currency="rub",
+        currency="RUB",
         prices=prices,
         payload="marathon_payment",
         start_parameter="marathon_pay",
@@ -98,18 +96,23 @@ async def send_payment_invoice(callback: CallbackQuery, state: FSMContext, bot: 
     await track_event(callback.from_user.id, "click_pay", callback.from_user.username)
     await callback.answer()
     
-    # Send Invoice directly without asking for email in chat
     prices = [LabeledPrice(label="Участие в марафоне «МЕТОД»", amount=5000 * 100)]
     
+    # Deep Debugging
+    token = config.payment_token.get_secret_value()
+    logging.info(f"📤 INVOICE_DEBUG: user={callback.from_user.id}, token_exists={bool(token)}, len={len(token)}")
+    if token:
+        logging.info(f"📝 Token Prefix: {token[:4]}...{token[-4:]}")
+
     await callback.message.answer_invoice(
         title="Марафон «МЕТОД»",
         description="Полный доступ к весеннему марафону трансформации (4 недели)",
-        provider_token=config.payment_token.get_secret_value(),
-        currency="rub",
+        provider_token=token,
+        currency="RUB",
         prices=prices,
         payload="marathon_payment",
         start_parameter="marathon_pay",
-        need_email=True, # Telegram will ask for email in the payment UI
+        need_email=True,
         send_email_to_provider=True
     )
     
@@ -122,7 +125,6 @@ async def process_pre_checkout(pre_checkout_query: PreCheckoutQuery):
     logging.info(f"💳 PRE_CHECKOUT_RECEIVED: User {pre_checkout_query.from_user.id}, Total {pre_checkout_query.total_amount/100} {pre_checkout_query.currency}")
     
     try:
-        # We can add validation here if needed (e.g. check stock)
         await pre_checkout_query.answer(ok=True)
         logging.info(f"✅ PRE_CHECKOUT_APPROVED for user {pre_checkout_query.from_user.id}")
     except Exception as e:
