@@ -75,7 +75,7 @@ async def get_stats(db: Session = Depends(get_db)):
     # Funnel steps
     starts = db.query(AnalyticsEvent).filter(AnalyticsEvent.event_name == "click_start").count()
     engagement = db.query(AnalyticsEvent).filter(AnalyticsEvent.event_name.like("node_%")).count()
-    leads = db.query(AnalyticsEvent).filter(AnalyticsEvent.event_name == "email_captured").count()
+    leads = db.query(AnalyticsEvent).filter(AnalyticsEvent.event_name.in_(["email_captured", "contact_node"])).count()
     payments_started = db.query(AnalyticsEvent).filter(AnalyticsEvent.event_name == "payment_started").count()
     
     conversion_rate = round((paid_users / total_users * 100), 1) if total_users > 0 else 0
@@ -95,7 +95,7 @@ async def get_stats(db: Session = Depends(get_db)):
 
 @app.get("/api/users")
 async def get_users(db: Session = Depends(get_db)):
-    return db.query(UserRecord).order_by(UserRecord.created_at.desc()).all()
+    return db.query(UserRecord).order_by(UserRecord.joined_at.desc()).all()
 
 @app.post("/api/track")
 async def track_event(req: AnalyticsRequest, db: Session = Depends(get_db)):
