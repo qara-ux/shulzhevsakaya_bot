@@ -70,17 +70,23 @@ class AnalyticsRequest(BaseModel):
 async def get_stats(db: Session = Depends(get_db)):
     total_users = db.query(UserRecord).count()
     paid_users = db.query(UserRecord).filter(UserRecord.is_paid == True).count()
+    revenue = paid_users * 5000
     
     # Funnel steps
     starts = db.query(AnalyticsEvent).filter(AnalyticsEvent.event_name == "click_start").count()
-    leads = db.query(AnalyticsEvent).filter(AnalyticsEvent.event_name == "contact_node").count()
+    engagement = db.query(AnalyticsEvent).filter(AnalyticsEvent.event_name.like("node_%")).count()
+    leads = db.query(AnalyticsEvent).filter(AnalyticsEvent.event_name == "email_captured").count()
     payments_started = db.query(AnalyticsEvent).filter(AnalyticsEvent.event_name == "payment_started").count()
     
+    conversion_rate = round((paid_users / total_users * 100), 1) if total_users > 0 else 0
+    
     return {
+        "revenue": revenue,
         "total_users": total_users,
-        "paid_users": paid_users,
+        "conversion_rate": conversion_rate,
         "funnel": {
             "starts": starts,
+            "engagement": engagement,
             "leads": leads,
             "payments": payments_started,
             "success": paid_users
@@ -100,10 +106,61 @@ async def track_event(req: AnalyticsRequest, db: Session = Depends(get_db)):
     
     if req.event_name == "email_captured" and req.data and "email" in req.data:
         user.email = req.data["email"]
-        db.add(AnalyticsEvent(user_id=req.user_id, event_name=req.event_name, data=req.data))
     
     db.add(AnalyticsEvent(user_id=req.user_id, event_name=req.event_name, data=req.data))
+    db.commit()
+    return {"status": "ok"}
+
+@app.post("/api/send_direct")
+async def send_direct(req: Dict[str, Any], db: Session = Depends(get_db)):
+    user_id = req.get("user_id")
+    msg = req.get("message")
+    if not user_id or not msg: raise HTTPException(400)
+    async with httpx.AsyncClient() as client:
+        try:
+            await client.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", json={"chat_id": user_id, "text": msg})
+            return {"status": "ok"}
+        except Exception as e:
+            raise HTTPException(500, detail=str(e))
+
+@app.get("/api/logs/{user_id}")
+async def get_user_logs(user_id: str, db: Session = Depends(get_db)):
+    return db.query(AnalyticsEvent).filter(AnalyticsEvent.user_id == int(user_id)).order_by(AnalyticsEvent.created_at.desc()).all()
+
+@app.post("/api/danger/reset")
+async def reset_data(db: Session = Depends(get_db)):
+    try:
+        db.query(AnalyticsEvent).delete()
+        db.query(UserRecord).delete()
+        db.commit()
+        return {"status": "ok"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(500, detail=str(e))
+
+# --- Constructor Routes ---
+@app.get("/api/nodes")
+async def get_nodes(db: Session = Depends(get_db)):
+    return db.query(BotNode).all()
+
+@app.post("/api/nodes")
+async def create_node(node: Dict[str, Any], db: Session = Depends(get_db)):
+    db_node = BotNode(**node)
+    db.add(db_node); db.commit(); return db_node
+
+@app.put("/api/nodes/{node_id}")
+async def update_node(node_id: str, node: Dict[str, Any], db: Session = Depends(get_db)):
+    db.query(BotNode).filter(BotNode.id == node_id).update(node)
     db.commit(); return {"status": "ok"}
+
+@app.put("/api/nodes/{node_id}/position")
+async def update_node_position(node_id: str, pos: Dict[str, int], db: Session = Depends(get_db)):
+    node = db.query(BotNode).filter(BotNode.id == node_id).first()
+    if node:
+        node.x = pos["x"]
+        node.y = pos["y"]
+        db.commit()
+    return {"status": "ok"}
 
 @app.post("/api/webhook/yookassa")
 async def yookassa_webhook(request: Request, db: Session = Depends(get_db)):
@@ -127,7 +184,7 @@ async def yookassa_webhook(request: Request, db: Session = Depends(get_db)):
         return {"status": "ok"}
     except: return {"status": "error"}
 
-# Serve dashboard
+# Serve static
 app.mount("/static", StaticFiles(directory="dashboard/static"), name="static")
 
 @app.get("/{path:path}")
