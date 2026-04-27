@@ -100,8 +100,12 @@ async def send_payment_invoice(callback: CallbackQuery, state: FSMContext, bot: 
     
     prices = [LabeledPrice(label="Участие в марафоне «МЕТОД»", amount=5000 * 100)]
     token = config.payment_token.get_secret_value()
+    is_test = token.startswith("TEST:") or ":TEST:" in token
+    mode = "TEST (Simulation)" if is_test else "LIVE (Real Money)"
     
-    print(f"DEBUG_INVOICE_START: user={callback.from_user.id} token_len={len(token)}", flush=True)
+    print(f"DEBUG_INVOICE_START: user={callback.from_user.id} mode={mode} len={len(token)}", flush=True)
+    if token:
+        print(f"📝 Token Mask: {token[:4]}...{token[-4:]}", flush=True)
 
     try:
         await callback.message.answer_invoice(
