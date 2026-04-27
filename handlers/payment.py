@@ -57,7 +57,7 @@ async def check_payment_status(payment_id: str, chat_id: int, user_id: int, bot:
     return False
 
 @router.callback_query(F.data == "go_to_payment")
-async def send_payment_link(callback: CallbackQuery, state: FSMContext):
+async def send_payment_link(callback: CallbackQuery, state: FSMContext, bot: Bot = None):
     # Ask for email first to fulfill YooKassa fiscalization requirements
     await callback.message.answer("📧 Для оформления чека, пожалуйста, введите ваш **Email**:")
     await state.set_state(MarathonState.waiting_for_email)
