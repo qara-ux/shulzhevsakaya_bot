@@ -1,29 +1,32 @@
 let funnelChart, editor;
 let currentEditingNodeId = null, allNodes = [];
 let currentLang = localStorage.getItem('lang') || 'ru';
+let logsUsers = [];
 
 const translations = {
     ru: {
         nav_overview: "Обзор", nav_clients: "Клиенты", nav_planner: "Рассылки", nav_constructor: "Конструктор", nav_logs: "Активность",
         stat_volume: "Выручка", stat_users: "Пользователи", stat_conv: "Конверсия",
-        funnel_title: "Воронка продаж", crm_title: "База клиентов", crm_search: "Поиск по базе...",
+        funnel_title: "Воронка продаж", crm_title: "База клиентов", crm_search: "Поиск по клиентам...",
         table_user: "Клиент", table_email: "Email", table_status: "Статус",
         btn_save: "Сохранить", btn_add_node: "Создать блок", btn_delete: "Удалить",
         stage_starts: "Входы", stage_engagement: "Интерес", stage_leads: "Лиды", stage_payments: "Оплата", stage_success: "Успех",
         node_editor: "Редактор блока", label_node_id: "ID Блока", label_node_title: "Название шага",
         label_node_content: "Текст сообщения", label_funnel_stage: "Этап воронки", label_buttons: "Кнопки",
-        label_node_type: "Тип блока", label_delay: "Задержка (напр: 2h, 24h)"
+        label_node_type: "Тип блока", label_delay: "Задержка (напр: 2h, 24h)",
+        logs_search: "Поиск пользователей...", logs_select: "Выберите пользователя для просмотра логов"
     },
     en: {
         nav_overview: "Overview", nav_clients: "Clients", nav_planner: "Planner", nav_constructor: "Constructor", nav_logs: "Logs",
         stat_volume: "Volume", stat_users: "Total Users", stat_conv: "Conversion",
-        funnel_title: "Conversion Funnel", crm_title: "Customer Base", crm_search: "Search...",
+        funnel_title: "Conversion Funnel", crm_title: "Customer Base", crm_search: "Search customers...",
         table_user: "User", table_email: "Email", table_status: "Status",
         btn_save: "Save", btn_add_node: "Create Block", btn_delete: "Delete",
         stage_starts: "Starts", stage_engagement: "Engagement", stage_leads: "Leads", stage_payments: "Payments", stage_success: "Success",
         node_editor: "Node Editor", label_node_id: "Node ID", label_node_title: "Step Title",
         label_node_content: "Message Content", label_funnel_stage: "Funnel Stage", label_buttons: "Buttons",
-        label_node_type: "Node Type", label_delay: "Delay (e.g. 2h, 24h)"
+        label_node_type: "Node Type", label_delay: "Delay (e.g. 2h, 24h)",
+        logs_search: "Search users...", logs_select: "Select a user to view logs"
     }
 };
 
@@ -34,6 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadUsers();
     loadNodes();
     loadBroadcasts();
+    loadLogsUsers();
     applyTranslations();
 });
 
@@ -55,13 +59,13 @@ function initDrawflow() {
     });
 
     editor.on('connectionCreated', async (info) => {
-        const sourceNode = editor.getNodeFromId(info.output_id).data.id;
+        const sourceNodeId = editor.getNodeFromId(info.output_id).data.id;
         const targetNodeId = editor.getNodeFromId(info.input_id).data.id;
         const target = allNodes.find(n => n.id === targetNodeId);
         if (target && target.node_type === 'reminder') {
             await fetch('/api/nodes', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ id: target.id, parent_node_id: sourceNode })
+                body: JSON.stringify({ id: target.id, parent_node_id: sourceNodeId })
             });
             loadNodes();
         }
@@ -85,7 +89,7 @@ function showTab(tabId) {
     }
 }
 
-// --- DASHBOARD DATA ---
+// --- DASHBOARD & ANALYTICS ---
 async function updateDashboard() {
     try {
         const r = await fetch('/api/stats');
@@ -96,13 +100,14 @@ async function updateDashboard() {
         
         const t = translations[currentLang];
         const stages = [
-            { label: t.stage_starts, val: data.funnel.starts || 0 },
-            { label: t.stage_engagement, val: data.funnel.engagement || 0 },
-            { label: t.stage_leads, val: data.funnel.leads || 0 },
-            { label: t.stage_payments, val: data.funnel.payments || 0 },
-            { label: t.stage_success, val: data.funnel.success || 0 }
+            { label: t.stage_starts, val: data.funnel.starts || 0, color: '#ffffff' },
+            { label: t.stage_engagement, val: data.funnel.engagement || 0, color: '#e2e2e2' },
+            { label: t.stage_leads, val: data.funnel.leads || 0, color: '#cccccc' },
+            { label: t.stage_payments, val: data.funnel.payments || 0, color: '#facc15' },
+            { label: t.stage_success, val: data.funnel.success || 0, color: '#22c55e' }
         ];
 
+        // Visual Bars
         const container = document.getElementById('visual-funnel');
         if (container) {
             container.innerHTML = '';
@@ -116,9 +121,103 @@ async function updateDashboard() {
                 }
             });
         }
+
+        // REAL CHART (Chart.js)
+        renderFunnelChart(stages);
     } catch (e) { console.error(e); }
 }
 
+function renderFunnelChart(stages) {
+    const ctx = document.getElementById('funnelChart');
+    if (!ctx) return;
+    if (funnelChart) funnelChart.destroy();
+    
+    funnelChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: stages.map(s => s.label),
+            datasets: [{
+                label: 'Users',
+                data: stages.map(s => s.val),
+                borderColor: '#facc15',
+                backgroundColor: 'rgba(250, 204, 21, 0.1)',
+                borderWidth: 3,
+                tension: 0.4,
+                fill: true,
+                pointBackgroundColor: '#fff',
+                pointRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { display: false, beginAtZero: true },
+                x: { grid: { display: false }, ticks: { color: '#888', font: { size: 10, weight: 'bold' } } }
+            }
+        }
+    });
+}
+
+// --- LOGS LOGIC ---
+async function loadLogsUsers() {
+    try {
+        const r = await fetch('/api/users');
+        logsUsers = await r.json();
+        renderLogsUsers(logsUsers);
+    } catch (e) { console.error(e); }
+}
+
+function renderLogsUsers(users) {
+    const list = document.getElementById('log-user-list');
+    if (!list) return;
+    list.innerHTML = '';
+    users.forEach(u => {
+        list.innerHTML += `
+            <div class="log-user-item" onclick="selectLogUser('${u.telegram_id}')" id="log-user-${u.telegram_id}">
+                <strong>@${u.username || u.telegram_id}</strong>
+                <span>${u.email || 'No email'}</span>
+            </div>
+        `;
+    });
+}
+
+window.filterLogUsers = () => {
+    const q = document.getElementById('log-user-search').value.toLowerCase();
+    const filtered = logsUsers.filter(u => 
+        (u.username && u.username.toLowerCase().includes(q)) || 
+        u.telegram_id.toString().includes(q)
+    );
+    renderLogsUsers(filtered);
+};
+
+window.selectLogUser = async (id) => {
+    document.querySelectorAll('.log-user-item').forEach(el => el.classList.remove('active'));
+    document.getElementById(`log-user-${id}`).classList.add('active');
+    
+    try {
+        const r = await fetch(`/api/users/${id}/logs`);
+        const logs = await r.json();
+        const timeline = document.getElementById('log-timeline');
+        timeline.innerHTML = '';
+        if (logs.length === 0) {
+            timeline.innerHTML = '<div class="empty-state"><p>No activity recorded yet.</p></div>';
+            return;
+        }
+        logs.forEach(l => {
+            timeline.innerHTML += `
+                <div class="timeline-item">
+                    <div class="timeline-date">${new Date(l.timestamp).toLocaleString()}</div>
+                    <div class="timeline-event">${l.event_type}</div>
+                    <div class="timeline-data">${l.data || ''}</div>
+                </div>
+            `;
+        });
+    } catch (e) { console.error(e); }
+};
+
+// --- CLIENTS & CONSTRUCTOR ---
 async function loadUsers() {
     try {
         const response = await fetch('/api/users');
@@ -138,7 +237,6 @@ async function loadUsers() {
     } catch (e) { console.error(e); }
 }
 
-// --- CONSTRUCTOR FUNCTIONS ---
 async function loadNodes() {
     try {
         const response = await fetch('/api/nodes');
@@ -167,11 +265,13 @@ function renderNodesOnCanvas() {
     allNodes.forEach(node => {
         if (node.buttons) {
             node.buttons.forEach(btn => {
-                if (btn.next_node) editor.addConnection(node.id, btn.next_node, 'output_1', 'input_1');
+                if (btn.next_node) {
+                    try { editor.addConnection(node.id, btn.next_node, 'output_1', 'input_1'); } catch(e){}
+                }
             });
         }
         if (node.parent_node_id) {
-            editor.addConnection(node.parent_node_id, node.id, 'output_1', 'input_1');
+            try { editor.addConnection(node.parent_node_id, node.id, 'output_1', 'input_1'); } catch(e){}
         }
     });
 }
@@ -186,7 +286,9 @@ function openSidepanel(nodeId) {
     document.getElementById('edit-funnel-stage').value = node.funnel_stage || 'none';
     
     const type = node.node_type || 'main';
-    selectOption('node-type', type, type === 'main' ? 'Основной' : 'Дожим');
+    document.getElementById('node-type-val').innerText = type === 'main' ? 'Основной' : 'Дожим';
+    document.getElementById('node-type-val').setAttribute('data-val', type);
+    document.getElementById('reminder-settings').style.display = (type === 'reminder') ? 'block' : 'none';
     document.getElementById('edit-node-delay').value = node.delay || '';
     renderEditButtons(node.buttons || []);
     document.getElementById('node-sidepanel').classList.add('active');
@@ -200,9 +302,9 @@ function renderEditButtons(buttons) {
     buttons.forEach((btn, idx) => {
         list.innerHTML += `
             <div class="button-edit-item" style="display:flex; gap:8px; margin-bottom:8px;">
-                <input type="text" value="${btn.text}" onchange="updateButton(${idx}, 'text', this.value)" style="flex:1; background:#000; border:1px solid var(--border); color:white; padding:8px; border-radius:6px;">
-                <select onchange="updateButton(${idx}, 'next_node', this.value)" style="background:#000; color:white; border:1px solid var(--border); padding:8px; border-radius:6px;">
-                    <option value="">Link to...</option>
+                <input type="text" value="${btn.text}" onchange="updateButton(${idx}, 'text', this.value)" style="flex:1;">
+                <select onchange="updateButton(${idx}, 'next_node', this.value)" class="modern-select" style="width:120px; padding:8px;">
+                    <option value="">Link...</option>
                     ${allNodes.map(n => `<option value="${n.id}" ${btn.next_node === n.id ? 'selected' : ''}>${n.id}</option>`).join('')}
                 </select>
                 <button onclick="removeButton(${idx})" style="background:none; border:none; color:#ff4444; cursor:pointer;">✕</button>
@@ -249,33 +351,42 @@ async function saveNodePosition(nodeId, x, y) {
     await fetch(`/api/nodes/${nodeId}/position`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ x, y }) });
 }
 
-// --- MODALS & HELPERS ---
-function showPModal(title, text, confirmBtnText, onConfirm) {
-    document.getElementById('p-modal-title').innerText = title;
-    document.getElementById('p-modal-text').innerText = text;
-    document.getElementById('p-modal-confirm').innerText = confirmBtnText;
-    document.getElementById('p-modal-confirm').onclick = () => { onConfirm(); closePModal(); };
-    document.getElementById('p-modal').classList.add('active');
-}
-function closePModal() { document.getElementById('p-modal').classList.remove('active'); }
-
-function selectOption(idPrefix, val, label) {
-    const valEl = document.getElementById(`${idPrefix}-val`);
-    if (valEl) { valEl.innerText = label; valEl.setAttribute('data-val', val); }
-    document.getElementById(`${idPrefix}-options`).classList.remove('show');
-    if (idPrefix === 'node-type') document.getElementById('reminder-settings').style.display = (val === 'reminder') ? 'block' : 'none';
-}
-function toggleSelect(id) { document.getElementById(id.replace('-select', '-options')).classList.toggle('show'); }
-
+// --- HELPERS ---
 function applyTranslations() {
     const t = translations[currentLang];
     document.querySelectorAll('[data-i18n]').forEach(el => {
         const key = el.getAttribute('data-i18n');
         if (t[key]) el.innerText = t[key];
     });
+    const searchInput = document.getElementById('crm-search');
+    if (searchInput) searchInput.placeholder = t.crm_search;
+    const logSearch = document.getElementById('log-user-search');
+    if (logSearch) logSearch.placeholder = t.logs_search;
 }
 
-// --- OTHER ---
+// Window Exports
+window.showTab = showTab;
+window.setLanguage = (l) => { currentLang = l; localStorage.setItem('lang', l); applyTranslations(); updateDashboard(); };
+window.addNewNode = async () => { const id = prompt("ID:"); if(id) { await fetch('/api/nodes', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id, title:"New", content:"...", node_type:"main"})}); loadNodes(); } };
+window.saveNodeData = saveNodeData;
+window.closeSidepanel = closeSidepanel;
+window.toggleSelect = (id) => { 
+    const options = document.getElementById(id.replace('-select', '-options'));
+    options.classList.toggle('show');
+};
+window.selectOption = (idPrefix, val, label) => {
+    const valEl = document.getElementById(`${idPrefix}-val`);
+    valEl.innerText = label;
+    valEl.setAttribute('data-val', val);
+    document.getElementById(`${idPrefix}-options`).classList.remove('show');
+    document.getElementById('reminder-settings').style.display = (val === 'reminder') ? 'block' : 'none';
+};
+window.addNodeButton = addNodeButton;
+window.removeButton = removeButton;
+window.updateButton = updateButton;
+window.togglePaid = async (userId) => { if(confirm("Change status?")) { await fetch(`/api/users/${userId}/toggle_paid`, { method: 'POST' }); loadUsers(); updateDashboard(); } };
+window.deleteCurrentNode = async () => { if(confirm("Delete?")) { await fetch(`/api/nodes/${currentEditingNodeId}`, {method:'DELETE'}); closeSidepanel(); loadNodes(); } };
+
 async function loadBroadcasts() {
     const r = await fetch('/api/broadcasts');
     const data = await r.json();
@@ -286,24 +397,3 @@ async function loadBroadcasts() {
         list.innerHTML += `<div class="plan-item"><div class="plan-header"><span class="plan-type-pill">${b.type}</span></div><div class="plan-msg-text">${b.message_text}</div></div>`;
     });
 }
-
-async function togglePaid(userId) {
-    if (!confirm("Change status?")) return;
-    await fetch(`/api/users/${userId}/toggle_paid`, { method: 'POST' });
-    loadUsers(); updateDashboard();
-}
-
-// Window Exports
-window.showTab = showTab;
-window.setLanguage = (l) => { currentLang = l; localStorage.setItem('lang', l); applyTranslations(); };
-window.addNewNode = async () => { const id = prompt("ID:"); if(id) { await fetch('/api/nodes', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id, title:"New", content:"...", node_type:"main"})}); loadNodes(); } };
-window.saveNodeData = saveNodeData;
-window.closeSidepanel = closeSidepanel;
-window.toggleSelect = toggleSelect;
-window.selectOption = selectOption;
-window.addNodeButton = addNodeButton;
-window.removeButton = removeButton;
-window.updateButton = updateButton;
-window.closePModal = closePModal;
-window.togglePaid = togglePaid;
-window.deleteCurrentNode = async () => { if(confirm("Delete?")) { await fetch(`/api/nodes/${currentEditingNodeId}`, {method:'DELETE'}); closeSidepanel(); loadNodes(); } };
