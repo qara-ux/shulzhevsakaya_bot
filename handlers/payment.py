@@ -105,7 +105,9 @@ async def process_email_and_create_payment(message: Message, state: FSMContext, 
                         "description": "Участие в марафоне МЕТОД",
                         "quantity": "1",
                         "amount": {"value": "5000.00", "currency": "RUB"},
-                        "vat_code": "1"
+                        "vat_code": "1",
+                        "payment_mode": "full_payment",
+                        "payment_subject": "service"
                     }
                 ]
             }
