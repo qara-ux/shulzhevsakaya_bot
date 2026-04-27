@@ -1,4 +1,5 @@
 import logging
+import json
 from aiogram import Router, F, Bot
 from aiogram.types import Message, CallbackQuery, LabeledPrice, PreCheckoutQuery, SuccessfulPayment
 from aiogram.filters import StateFilter
@@ -72,7 +73,22 @@ async def process_email_legacy(message: Message, state: FSMContext, bot: Bot):
     prices = [LabeledPrice(label="Участие в марафоне «МЕТОД»", amount=5000 * 100)]
     token = config.payment_token.get_secret_value()
     
-    print(f"DEBUG_INVOICE_START: user={message.from_user.id} token_len={len(token)}", flush=True)
+    # Fiscalization data
+    provider_data = {
+        "receipt": {
+            "items": [
+                {
+                    "description": "Участие в марафоне «МЕТОД»",
+                    "quantity": "1.00",
+                    "amount": {
+                        "value": "5000.00",
+                        "currency": "RUB"
+                    },
+                    "vat_code": 1
+                }
+            ]
+        }
+    }
 
     try:
         await message.answer_invoice(
@@ -83,10 +99,10 @@ async def process_email_legacy(message: Message, state: FSMContext, bot: Bot):
             prices=prices,
             payload="marathon_payment",
             start_parameter="marathon_pay",
+            provider_data=json.dumps(provider_data),
             need_email=True,
-            send_email_to_provider=False
+            send_email_to_provider=True
         )
-        print(f"DEBUG_INVOICE_OK: user={message.from_user.id}", flush=True)
     except Exception as e:
         print(f"DEBUG_INVOICE_ERROR: user={message.from_user.id} err={e}", flush=True)
 
@@ -94,7 +110,6 @@ async def process_email_legacy(message: Message, state: FSMContext, bot: Bot):
 
 @router.callback_query(F.data == "go_to_payment")
 async def send_payment_invoice(callback: CallbackQuery, state: FSMContext, bot: Bot):
-    print(f"DEBUG: User {callback.from_user.id} clicked pay", flush=True)
     await track_event(callback.from_user.id, "click_pay", callback.from_user.username)
     await callback.answer()
     
@@ -103,9 +118,24 @@ async def send_payment_invoice(callback: CallbackQuery, state: FSMContext, bot: 
     is_test = token.startswith("TEST:") or ":TEST:" in token
     mode = "TEST (Simulation)" if is_test else "LIVE (Real Money)"
     
+    # Fiscalization data for YooKassa (Mandatory for Russian shops with receipts enabled)
+    provider_data = {
+        "receipt": {
+            "items": [
+                {
+                    "description": "Участие в марафоне «МЕТОД»",
+                    "quantity": "1.00",
+                    "amount": {
+                        "value": "5000.00",
+                        "currency": "RUB"
+                    },
+                    "vat_code": 1
+                }
+            ]
+        }
+    }
+    
     print(f"DEBUG_INVOICE_START: user={callback.from_user.id} mode={mode} len={len(token)}", flush=True)
-    if token:
-        print(f"📝 Token Mask: {token[:4]}...{token[-4:]}", flush=True)
 
     try:
         await callback.message.answer_invoice(
@@ -116,8 +146,9 @@ async def send_payment_invoice(callback: CallbackQuery, state: FSMContext, bot: 
             prices=prices,
             payload="marathon_payment",
             start_parameter="marathon_pay",
+            provider_data=json.dumps(provider_data),
             need_email=True,
-            send_email_to_provider=False
+            send_email_to_provider=True
         )
         print(f"DEBUG_INVOICE_OK: user={callback.from_user.id}", flush=True)
     except Exception as e:
