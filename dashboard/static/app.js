@@ -130,10 +130,21 @@ async function loadUsers() {
         tb.innerHTML += `<tr>
             <td>@${username}</td>
             <td>${u.email || '—'}</td>
-            <td><span class="badge ${u.is_paid ? 'paid' : 'pending'}">${u.is_paid ? 'PAID' : 'FREE'}</span></td>
+            <td><span class="badge ${u.is_paid ? 'paid' : 'pending'}" onclick="togglePaid('${u.telegram_id}')" style="cursor:pointer">${u.is_paid ? 'PAID' : 'FREE'}</span></td>
             <td><button class="dm-btn" onclick="openDM('${u.telegram_id}', '${username}')">DM</button></td>
         </tr>`;
     });
+}
+
+async function togglePaid(userId) {
+    if (!confirm("Change payment status for this user?")) return;
+    try {
+        const r = await fetch(`/api/users/${userId}/toggle_paid`, { method: 'POST' });
+        if (r.ok) {
+            loadUsers();
+            updateDashboard();
+        }
+    } catch (e) { console.error(e); }
 }
 
 let currentDMUserId = null;
@@ -782,6 +793,7 @@ window.selectOption = selectOption;
 window.submitPlan = submitPlan;
 window.deletePlan = deletePlan;
 window.viewUserLogs = viewUserLogs;
+window.togglePaid = togglePaid;
 window.applyLogDateFilter = applyLogDateFilter;
 window.clearLogDateFilter = clearLogDateFilter;
 window.filterLogUsers = (q) => {

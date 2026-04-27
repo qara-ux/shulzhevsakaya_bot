@@ -103,6 +103,32 @@ async def get_stats(db: Session = Depends(get_db)):
 async def get_users(db: Session = Depends(get_db)):
     return db.query(UserRecord).order_by(UserRecord.joined_at.desc()).all()
 
+@app.post("/api/users/{user_id}/toggle_paid")
+async def toggle_paid(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(UserRecord).filter(UserRecord.telegram_id == user_id).first()
+    if not user: raise HTTPException(404)
+    
+    # Toggle status
+    new_status = not user.is_paid
+    user.is_paid = new_status
+    
+    if new_status:
+        # If changed to PAID, send message and track event
+        db.add(AnalyticsEvent(user_id=user_id, event_name="payment_success", data={"source": "manual_admin"}))
+        async with httpx.AsyncClient() as client:
+            await client.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", json={
+                "chat_id": user_id,
+                "text": "🎉 Поздравляем! Оплата прошла успешно.\n\nТеперь вам открыт полный доступ к марафону «МЕТОД». Нажмите кнопку ниже, чтобы вступить в группу:",
+                "reply_markup": {
+                    "inline_keyboard": [[
+                        {"text": "🚀 Присоединиться к марафону", "url": "https://t.me/+bS5QPLnYB8M0Y2Ji"}
+                    ]]
+                }
+            })
+    
+    db.commit()
+    return {"status": "ok", "is_paid": user.is_paid}
+
 @app.post("/api/track")
 async def track_event(req: AnalyticsRequest, db: Session = Depends(get_db)):
     user = db.query(UserRecord).filter(UserRecord.telegram_id == req.user_id).first()
