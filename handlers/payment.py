@@ -52,7 +52,7 @@ async def send_payment_invoice(callback: CallbackQuery, state: FSMContext, bot: 
     await track_event(callback.from_user.id, "click_pay", callback.from_user.username)
     await callback.answer()
     
-    prices = [LabeledPrice(label="Участие в марафоне «МЕТОД»", amount=5000 * 100)]
+    prices = [LabeledPrice(label="Marathon Access", amount=5000 * 100)]
     token = config.payment_token.get_secret_value()
     
     print(f"📤 SENDING_INVOICE: user={callback.from_user.id} token_len={len(token)}", flush=True)
