@@ -15,6 +15,16 @@ from apscheduler.triggers.cron import CronTrigger
 
 from .database import engine, get_db, Base, SessionLocal
 from .models import AnalyticsEvent, UserRecord, ScheduledBroadcast, BotNode
+from yookassa import Configuration, Payment
+from yookassa.domain.notification import WebhookNotificationFactory
+from fastapi import FastAPI, Depends, Header, HTTPException, Body, Request
+
+YOOKASSA_SHOP_ID = os.getenv("YOOKASSA_SHOP_ID")
+YOOKASSA_SECRET_KEY = os.getenv("YOOKASSA_SECRET_KEY")
+
+if YOOKASSA_SHOP_ID and YOOKASSA_SECRET_KEY:
+    Configuration.account_id = YOOKASSA_SHOP_ID
+    Configuration.secret_key = YOOKASSA_SECRET_KEY
 
 load_dotenv()
 Base.metadata.create_all(bind=engine)
@@ -269,6 +279,46 @@ async def reset_data(db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         raise HTTPException(500, detail=str(e))
+
+@app.post("/api/webhook/yookassa")
+async def yookassa_webhook(request: Request, db: Session = Depends(get_db)):
+    try:
+        body = await request.json()
+        notification = WebhookNotificationFactory().create(body)
+        payment = notification.object
+        
+        if notification.event == "payment.succeeded":
+            metadata = payment.metadata
+            if metadata and metadata.get("bot_source") == "@method_shulzhevskoy_bot":
+                user_id = int(metadata.get("user_id"))
+                
+                user = db.query(UserRecord).filter(UserRecord.telegram_id == user_id).first()
+                if user:
+                    user.is_paid = True
+                    db.commit()
+                    print(f"WEBHOOK: Payment confirmed for user {user_id}")
+                    
+                    # Send success message via Bot API
+                    async with httpx.AsyncClient() as client:
+                        await client.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", json={
+                            "chat_id": user_id,
+                            "text": "🎉 Поздравляем! Оплата прошла успешно.\n\nТеперь вам открыт полный доступ к марафону «МЕТОД».\n\n👉 Ссылка на закрытую группу: https://t.me/+C-xOxlwd-MFmYjZi"
+                        })
+                        
+        return {"status": "ok"}
+    except Exception as e:
+        print(f"WEBHOOK_ERROR: {e}")
+        return {"status": "error"}
+
+@app.get("/{path:path}")
+async def serve_static(path: str):
+    if path.startswith("api"):
+        raise HTTPException(status_code=404)
+    
+    file_path = os.path.join("dashboard/static", path)
+    if os.path.isfile(file_path):
+        return FileResponse(file_path)
+    return FileResponse("dashboard/static/index.html")
 
 app.mount("/static", StaticFiles(directory="dashboard/static"), name="static")
 @app.get("/")

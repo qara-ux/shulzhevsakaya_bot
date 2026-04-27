@@ -9,3 +9,4 @@ aiosmtplib
 fastapi
 uvicorn
 sqlalchemy
+yookassa

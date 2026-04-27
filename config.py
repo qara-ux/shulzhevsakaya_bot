@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     analytics_api_url: str = "http://localhost:8000"
     analytics_api_key: str = "changeme"
     payment_token: SecretStr = SecretStr("")
+    yookassa_shop_id: str = ""
+    yookassa_secret_key: SecretStr = SecretStr("")
     
     # SMTP Settings
     smtp_host: str = "smtp.yandex.ru"
