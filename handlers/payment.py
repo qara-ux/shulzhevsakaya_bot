@@ -43,13 +43,32 @@ async def send_payment_invoice(callback: CallbackQuery, state: FSMContext, bot: 
     await track_event(callback.from_user.id, "click_pay", callback.from_user.username)
     await callback.answer()
     
-    prices = [LabeledPrice(label="Marathon Access Pass", amount=5000 * 100)]
+    prices = [LabeledPrice(label="Участие в марафоне «МЕТОД»", amount=5000 * 100)]
     token = config.payment_token.get_secret_value()
     
-    print(f"📤 SENDING_INVOICE: user={callback.from_user.id} token_len={len(token)}", flush=True)
+    # EXACT provider_data structure from YooKassa support
+    provider_data = {
+        "receipt": {
+            "items": [
+                {
+                    "description": "Участие в марафоне «МЕТОД»",
+                    "quantity": 1,
+                    "amount": {
+                        "value": "5000.00",
+                        "currency": "RUB"
+                    },
+                    "vat_code": 1, # 1=No VAT, 4=20% VAT. Using 1 as baseline.
+                    "payment_mode": "full_payment",
+                    "payment_subject": "service"
+                }
+            ],
+            "tax_system_code": 1 # 1=OSN, 2=USN. Using 1 as per example.
+        }
+    }
+
+    print(f"📤 SENDING_EXACT_INVOICE: user={callback.from_user.id}", flush=True)
 
     try:
-        # Using direct bot.send_invoice for maximum reliability
         await bot.send_invoice(
             chat_id=callback.message.chat.id,
             title="Марафон «МЕТОД»",
@@ -58,7 +77,8 @@ async def send_payment_invoice(callback: CallbackQuery, state: FSMContext, bot: 
             currency="RUB",
             prices=prices,
             payload=f"marathon_payment_{callback.from_user.id}",
-            start_parameter="marathon_registration",
+            start_parameter="marathon_reg",
+            provider_data=json.dumps(provider_data),
             need_email=True,
             send_email_to_provider=True
         )
