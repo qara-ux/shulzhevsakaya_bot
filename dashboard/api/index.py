@@ -168,12 +168,6 @@ async def update_node_position(node_id: str, pos: Dict[str, int], db: Session = 
         db.commit()
     return {"status": "ok"}
 
-@app.get("/api/debug/clear_events")
-async def clear_events(db: Session = Depends(get_db)):
-    db.query(AnalyticsEvent).delete()
-    db.commit()
-    return {"status": "Logs cleared successfully"}
-
 @app.post("/api/webhook/yookassa")
 async def yookassa_webhook(request: Request, db: Session = Depends(get_db)):
     try:
