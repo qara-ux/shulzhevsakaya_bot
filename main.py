@@ -193,16 +193,16 @@ async def main():
         await bot.session.close()
 
 if __name__ == "__main__":
-    # Prevent local runs from conflicting with Railway
-    if not os.getenv("RAILWAY_ENVIRONMENT") and not os.getenv("PORT"):
+    # Prevent local runs from conflicting with Railway unless explicitly allowed for testing
+    is_local = not os.getenv("RAILWAY_ENVIRONMENT") and not os.getenv("PORT")
+    allow_test = os.getenv("LOCAL_TEST", "").lower() == "true"
+
+    if is_local and not allow_test:
         print("\n" + "!"*60)
         print("⚠️  LOCAL RUN DETECTED: Bot polling is DISABLED locally.")
-        print("This is to prevent 'ConflictError' with your Railway instance.")
-        print("To run locally anyway, set RAILWAY_ENVIRONMENT=true in your .env")
+        print("To run locally for testing, set LOCAL_TEST=true in your .env")
+        print("and use a SEPARATE bot token to avoid conflicts.")
         print("!"*60 + "\n")
-        
-        # We still allow the dashboard/API to run if needed, 
-        # but here we just exit to be safe as per user request.
         sys.exit(0)
 
     try:
