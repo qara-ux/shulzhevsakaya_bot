@@ -84,7 +84,7 @@ async def process_email_legacy(message: Message, state: FSMContext, bot: Bot):
             payload="marathon_payment",
             start_parameter="marathon_pay",
             need_email=True,
-            send_email_to_provider=True
+            send_email_to_provider=False
         )
         print(f"DEBUG_INVOICE_OK: user={message.from_user.id}", flush=True)
     except Exception as e:
@@ -113,7 +113,7 @@ async def send_payment_invoice(callback: CallbackQuery, state: FSMContext, bot: 
             payload="marathon_payment",
             start_parameter="marathon_pay",
             need_email=True,
-            send_email_to_provider=True
+            send_email_to_provider=False
         )
         print(f"DEBUG_INVOICE_OK: user={callback.from_user.id}", flush=True)
     except Exception as e:
