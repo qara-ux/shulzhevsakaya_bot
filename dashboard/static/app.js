@@ -733,7 +733,7 @@ async function createNewNode() {
 
 const translations = {
     ru: {
-        nav_overview: "Обзор", nav_clients: "Clients", nav_planner: "Рассылки", nav_constructor: "Конструктор", nav_logs: "Активность",
+        nav_overview: "Обзор", nav_clients: "Клиенты", nav_planner: "Рассылки", nav_constructor: "Конструктор", nav_logs: "Активность",
         stat_volume: "Выручка", stat_users: "Пользователи", stat_conv: "Конверсия",
         funnel_title: "Воронка продаж", crm_title: "База клиентов", crm_search: "Поиск по базе...",
         table_user: "Клиент", table_email: "Email", table_status: "Статус",
