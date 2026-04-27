@@ -70,23 +70,21 @@ async def send_node(message_or_call, node_id: str, state: FSMContext = None):
         text = node.content
         kb = get_node_keyboard(node.buttons)
 
-        # Cancel any pending follow-ups for this user
-        job_id = f"fu_{user_id}"
-        if scheduler.get_job(job_id):
-            scheduler.remove_job(job_id)
+        # 1. Cancel ANY pending reminders for this user
+        jobs = scheduler.get_jobs()
+        for job in jobs:
+            if job.id.startswith(f"rem_{user_id}_"):
+                scheduler.remove_job(job.id)
 
-        # UI Response
+        # 2. UI Response
         if isinstance(message_or_call, types.Message):
             if node.image_url: await message_or_call.bot.send_photo(user_id, photo=node.image_url, caption=text, reply_markup=kb)
             else: await message_or_call.bot.send_message(user_id, text=text, reply_markup=kb)
         else:
-            # Always send a NEW message instead of editing the previous one
-            if node.image_url: 
-                await message_or_call.bot.send_photo(user_id, photo=node.image_url, caption=text, reply_markup=kb)
-            else: 
-                await message_or_call.bot.send_message(user_id, text=text, reply_markup=kb)
+            if node.image_url: await message_or_call.bot.send_photo(user_id, photo=node.image_url, caption=text, reply_markup=kb)
+            else: await message_or_call.bot.send_message(user_id, text=text, reply_markup=kb)
 
-        # Update DB
+        # 3. Update DB
         user = db.query(UserRecord).filter(UserRecord.telegram_id == user_id).first()
         if not user:
             user = UserRecord(telegram_id=user_id, username=message_or_call.from_user.username)
@@ -94,17 +92,44 @@ async def send_node(message_or_call, node_id: str, state: FSMContext = None):
         user.current_node = node_id
         db.commit()
 
-        # Schedule Follow-up if exists
-        if node.follow_up_delay and node.follow_up_node:
-            print(f"Scheduling follow-up {node.follow_up_node} in {node.follow_up_delay}m for {user_id}")
-            scheduler.add_job(
-                exec_follow_up, "date",
-                run_date=datetime.now() + timedelta(minutes=node.follow_up_delay),
-                args=[message_or_call.bot, user_id, node.follow_up_node],
-                id=job_id
-            )
+        # 4. Schedule NEW reminders for this node
+        reminders = db.query(BotNode).filter(BotNode.parent_node_id == node_id, BotNode.node_type == 'reminder').all()
+        for rem in reminders:
+            try:
+                # Convert delay (e.g. "2h", "30m", "1d") to seconds
+                delay_sec = parse_delay(rem.delay)
+                if delay_sec > 0:
+                    job_id = f"rem_{user_id}_{node_id}_{rem.id}"
+                    scheduler.add_job(
+                        exec_follow_up, "date",
+                        run_date=datetime.now() + timedelta(seconds=delay_sec),
+                        args=[message_or_call.bot, user_id, rem.id],
+                        id=job_id
+                    )
+                    print(f"Scheduled reminder {rem.id} in {rem.delay} for {user_id}")
+            except Exception as e:
+                print(f"Error scheduling reminder {rem.id}: {e}")
 
-        await track_event(user_id, f"node_{node_id}")
+        # 5. Track event (only if not a reminder)
+        if node.node_type != 'reminder' and node.funnel_stage != 'none':
+            await track_event(user_id, f"node_{node_id}", funnel_stage=node.funnel_stage)
+        else:
+            # Just log activity
+            await track_event(user_id, f"node_{node_id}")
+
+    finally:
+        db.close()
+
+def parse_delay(delay_str: str) -> int:
+    if not delay_str: return 0
+    try:
+        val = int(''.join(filter(str.isdigit, delay_str)))
+        unit = ''.join(filter(str.isalpha, delay_str)).lower()
+        if unit == 'm': return val * 60
+        if unit == 'h': return val * 3600
+        if unit == 'd': return val * 86400
+        return val # default seconds
+    except: return 0
     finally:
         db.close()
 

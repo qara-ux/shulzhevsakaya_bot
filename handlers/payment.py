@@ -46,6 +46,12 @@ async def check_payment_status(payment_id: str, chat_id: int, user_id: int, bot:
                     [InlineKeyboardButton(text="🚀 Присоединиться к марафону", url="https://t.me/+bS5QPLnYB8M0Y2Ji")]
                 ])
                 
+                # Cancel all reminders
+                jobs = scheduler.get_jobs()
+                for job in jobs:
+                    if job.id.startswith(f"rem_{user_id}_"):
+                        scheduler.remove_job(job.id)
+                
                 await bot.send_message(
                     chat_id, 
                     "🎉 Поздравляем! Оплата прошла успешно.\n\nТеперь вам открыт полный доступ к марафону «МЕТОД». Нажмите кнопку ниже, чтобы вступить в группу:",

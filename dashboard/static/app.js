@@ -1,8 +1,280 @@
-let funnelChart;
+let funnelChart, editor;
 let currentEditingNodeId = null, allNodes = [];
-let isDraggingNode = false, isPanning = false;
-let dragNode = null, dragOffset = { x: 0, y: 0 };
-let canvasOffset = { x: 0, y: 0 }, panStart = { x: 0, y: 0 }, zoom = 1;
+let currentLang = localStorage.getItem('lang') || 'ru';
+
+const translations = {
+    ru: {
+        nav_overview: "Обзор", nav_clients: "Клиенты", nav_planner: "Рассылки", nav_constructor: "Конструктор", nav_logs: "Активность",
+        stat_volume: "Выручка", stat_users: "Пользователи", stat_conv: "Конверсия",
+        funnel_title: "Воронка продаж", crm_title: "База клиентов", crm_search: "Поиск по базе...",
+        table_user: "Клиент", table_email: "Email", table_status: "Статус",
+        btn_save: "Сохранить", btn_add_node: "Создать блок", btn_delete: "Удалить",
+        stage_starts: "Входы", stage_engagement: "Интерес", stage_leads: "Лиды", stage_payments: "Оплата", stage_success: "Успех",
+        node_editor: "Редактор блока", label_node_id: "ID Блока", label_node_title: "Название шага",
+        label_node_content: "Текст сообщения", label_funnel_stage: "Этап воронки", label_buttons: "Кнопки",
+        label_node_type: "Тип блока", label_delay: "Задержка (напр: 2h, 24h)"
+    },
+    en: {
+        nav_overview: "Overview", nav_clients: "Clients", nav_planner: "Planner", nav_constructor: "Constructor", nav_logs: "Logs",
+        stat_volume: "Volume", stat_users: "Total Users", stat_conv: "Conversion",
+        funnel_title: "Conversion Funnel", crm_title: "Customer Base", crm_search: "Search...",
+        table_user: "User", table_email: "Email", table_status: "Status",
+        btn_save: "Save", btn_add_node: "Create Block", btn_delete: "Delete",
+        stage_starts: "Starts", stage_engagement: "Engagement", stage_leads: "Leads", stage_payments: "Payments", stage_success: "Success",
+        node_editor: "Node Editor", label_node_id: "Node ID", label_node_title: "Step Title",
+        label_node_content: "Message Content", label_funnel_stage: "Funnel Stage", label_buttons: "Buttons",
+        label_node_type: "Node Type", label_delay: "Delay (e.g. 2h, 24h)"
+    }
+};
+
+// --- INITIALIZATION ---
+document.addEventListener('DOMContentLoaded', () => {
+    initDrawflow();
+    updateDashboard();
+    loadUsers();
+    loadNodes();
+    loadBroadcasts();
+    applyTranslations();
+});
+
+function initDrawflow() {
+    const id = document.getElementById("drawflow");
+    if (!id) return;
+    editor = new Drawflow(id);
+    editor.reroute = true;
+    editor.start();
+
+    // Event: Click on node to edit
+    editor.on('nodeSelected', (id) => {
+        const node = editor.getNodeFromId(id);
+        openSidepanel(node.data.id);
+    });
+
+    // Event: Connection Created (Handle Parent-Reminder links)
+    editor.on('connectionCreated', async (info) => {
+        const sourceNode = editor.getNodeFromId(info.output_id).data.id;
+        const targetNodeId = editor.getNodeFromId(info.input_id).data.id;
+        
+        // Find target node and update its parent if it's a reminder
+        const target = allNodes.find(n => n.id === targetNodeId);
+        if (target && target.node_type === 'reminder') {
+            await fetch('/api/nodes', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ id: target.id, parent_node_id: sourceNode })
+            });
+            loadNodes();
+        }
+    });
+
+    // Event: Connection Removed
+    editor.on('connectionRemoved', async (info) => {
+        const targetNodeId = editor.getNodeFromId(info.input_id).data.id;
+        const target = allNodes.find(n => n.id === targetNodeId);
+        if (target && target.node_type === 'reminder') {
+            await fetch('/api/nodes', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ id: target.id, parent_node_id: null })
+            });
+            loadNodes();
+        }
+    });
+}
+
+// --- MODAL SYSTEM ---
+function showPModal(title, text, confirmBtnText, onConfirm) {
+    document.getElementById('p-modal-title').innerText = title;
+    document.getElementById('p-modal-text').innerText = text;
+    document.getElementById('p-modal-confirm').innerText = confirmBtnText;
+    
+    const confirmBtn = document.getElementById('p-modal-confirm');
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+    
+    newConfirmBtn.onclick = () => {
+        onConfirm();
+        closePModal();
+    };
+    
+    document.getElementById('p-modal').classList.add('active');
+}
+
+function closePModal() {
+    document.getElementById('p-modal').classList.remove('active');
+}
+
+// --- CONSTRUCTOR LOGIC ---
+async function loadNodes() {
+    try {
+        const response = await fetch('/api/nodes');
+        allNodes = await response.json();
+        renderNodesOnCanvas();
+    } catch (e) { console.error("Error loading nodes:", e); }
+}
+
+function renderNodesOnCanvas() {
+    editor.clear();
+    allNodes.forEach(node => {
+        const isReminder = node.node_type === 'reminder';
+        const html = `
+            <div class="node-view">
+                <div class="node-view-header">${node.id}</div>
+                <div class="node-view-body">
+                    <div class="node-view-title">${node.title}</div>
+                    <div class="node-view-content">${node.content}</div>
+                </div>
+            </div>
+        `;
+        editor.addNode(node.id, 1, 1, node.x || 100, node.y || 100, isReminder ? 'reminder-node' : 'main-node', { id: node.id }, html);
+    });
+
+    // Drawing connections based on buttons
+    allNodes.forEach(node => {
+        if (node.buttons) {
+            node.buttons.forEach(btn => {
+                if (btn.next_node) {
+                    editor.addConnection(node.id, btn.next_node, 'output_1', 'input_1');
+                }
+            });
+        }
+    });
+}
+
+async function addNewNode() {
+    const id = prompt("Enter Unique ID for new block (e.g. step_5):");
+    if (!id) return;
+    
+    const newNode = {
+        id: id, title: "New Block", content: "Hello user...",
+        buttons: [], node_type: "main", x: 200, y: 200
+    };
+
+    try {
+        const r = await fetch('/api/nodes', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(newNode)
+        });
+        if (r.ok) {
+            loadNodes();
+            openSidepanel(id);
+        }
+    } catch (e) { console.error(e); }
+}
+
+function openSidepanel(nodeId) {
+    const node = allNodes.find(n => n.id === nodeId);
+    if (!node) return;
+
+    currentEditingNodeId = nodeId;
+    document.getElementById('edit-node-id').value = node.id;
+    document.getElementById('edit-node-title').value = node.title;
+    document.getElementById('edit-node-content').value = node.content;
+    document.getElementById('edit-funnel-stage').value = node.funnel_stage || 'none';
+    
+    // Type and Delay
+    const type = node.node_type || 'main';
+    selectOption('node-type', type, type === 'main' ? 'Основной' : 'Дожим');
+    document.getElementById('edit-node-delay').value = node.delay || '';
+
+    // Render Buttons
+    renderEditButtons(node.buttons || []);
+
+    document.getElementById('node-sidepanel').classList.add('active');
+}
+
+function closeSidepanel() {
+    document.getElementById('node-sidepanel').classList.remove('active');
+}
+
+function renderEditButtons(buttons) {
+    const list = document.getElementById('node-buttons-list');
+    list.innerHTML = '';
+    buttons.forEach((btn, idx) => {
+        list.innerHTML += `
+            <div class="button-edit-item">
+                <input type="text" value="${btn.text}" onchange="updateButton(${idx}, 'text', this.value)" placeholder="Текст кнопки">
+                <select onchange="updateButton(${idx}, 'next_node', this.value)">
+                    <option value="">Нет связи</option>
+                    ${allNodes.map(n => `<option value="${n.id}" ${btn.next_node === n.id ? 'selected' : ''}>${n.id}</option>`).join('')}
+                </select>
+                <button class="del-btn" onclick="removeButton(${idx})">✕</button>
+            </div>
+        `;
+    });
+}
+
+async function saveNodePosition(nodeId, x, y) {
+    try {
+        await fetch(`/api/nodes/${nodeId}/position`, {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ x, y })
+        });
+    } catch (e) { console.error(e); }
+}
+
+function updateButton(idx, field, value) {
+    const node = allNodes.find(n => n.id === currentEditingNodeId);
+    if (node) {
+        node.buttons[idx][field] = value;
+    }
+}
+
+function removeButton(idx) {
+    const node = allNodes.find(n => n.id === currentEditingNodeId);
+    if (node) {
+        node.buttons.splice(idx, 1);
+        renderEditButtons(node.buttons);
+    }
+}
+
+function addNodeButton() {
+    const node = allNodes.find(n => n.id === currentEditingNodeId);
+    if (node) {
+        if (!node.buttons) node.buttons = [];
+        node.buttons.push({ text: "New Button", next_node: "" });
+        renderEditButtons(node.buttons);
+    }
+}
+
+async function saveNodeData() {
+    if (!currentEditingNodeId) return;
+    const node = allNodes.find(n => n.id === currentEditingNodeId);
+    
+    const updatedData = {
+        id: currentEditingNodeId,
+        title: document.getElementById('edit-node-title').value,
+        content: document.getElementById('edit-node-content').value,
+        funnel_stage: document.getElementById('edit-funnel-stage').value,
+        node_type: document.getElementById('node-type-val').getAttribute('data-val'),
+        delay: document.getElementById('edit-node-delay').value,
+        buttons: node.buttons
+    };
+
+    try {
+        const r = await fetch('/api/nodes', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(updatedData)
+        });
+        if (r.ok) {
+            closeSidepanel();
+            loadNodes();
+            updateDashboard(); // Refresh stats if stage changed
+        }
+    } catch (e) { console.error(e); }
+}
+
+async function deleteCurrentNode() {
+    if (!currentEditingNodeId) return;
+    showPModal(
+        "Delete Block?", 
+        `Are you sure you want to delete ${currentEditingNodeId}? This action cannot be undone.`,
+        "Delete Forever",
+        async () => {
+            await fetch(`/api/nodes/${currentEditingNodeId}`, { method: 'DELETE' });
+            closeSidepanel();
+            loadNodes();
+        }
+    );
+}
 
 async function updateDashboard() {
     try {
@@ -21,55 +293,6 @@ async function updateDashboard() {
             { label: t.stage_success, val: data.funnel.success || 0 }
         ];
 
-        const container = document.getElementById('visual-funnel');
-        if (container) {
-            container.innerHTML = '';
-            const maxVal = Math.max(...stages.map(s => s.val)) || 1;
-            stages.forEach((s, i) => {
-                const width = (s.val / maxVal) * 100;
-                container.innerHTML += `<div class="funnel-stage"><div class="funnel-bar" style="width: ${width}%"></div><div class="stage-info"><div>${s.label}</div></div><div class="stage-val">${s.val}</div></div>`;
-                if (i < stages.length - 1) { const drop = s.val ? Math.round((stages[i+1].val / s.val) * 100) : 0; container.innerHTML += `<div class="funnel-sep" data-drop="${drop}% CR"></div>`; }
-            });
-
-            const ctx = document.getElementById('funnelChart').getContext('2d');
-            const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-            gradient.addColorStop(0, 'rgba(167, 139, 250, 0.2)');
-            gradient.addColorStop(1, 'rgba(167, 139, 250, 0)');
-
-            if (funnelChart) {
-                funnelChart.data.labels = stages.map(s => s.label);
-                funnelChart.data.datasets[0].data = stages.map(s => s.val);
-                funnelChart.update('none');
-            } else {
-                funnelChart = new Chart(ctx, { 
-                    type: 'line', 
-                    data: { 
-                        labels: stages.map(s => s.label), 
-                        datasets: [{ 
-                            data: stages.map(s => s.val), 
-                            borderColor: '#a78bfa', 
-                            borderWidth: 3, 
-                            fill: true, 
-                            backgroundColor: gradient,
-                            tension: 0.4,
-                            pointRadius: 4,
-                            pointBackgroundColor: '#a78bfa',
-                            pointBorderColor: '#000',
-                            pointBorderWidth: 2,
-                            pointHoverRadius: 7
-                        }] 
-                    }, 
-                    options: { 
-                        responsive: true, maintainAspectRatio: false, 
-                        scales: { 
-                            x: { 
-                                grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false },
-                                ticks: { color: 'rgba(255,255,255,0.4)', font: { size: 10 } }
-                            }, 
-                            y: { 
-                                beginAtZero: true,
-                                grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false },
-                                ticks: { 
                                     color: 'rgba(255,255,255,0.4)', 
                                     font: { size: 10 },
                                     padding: 10,

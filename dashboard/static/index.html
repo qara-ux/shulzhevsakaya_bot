@@ -4,11 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>METOD | CRM Dashboard</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow/dist/drawflow.min.css">
+    <script src="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow/dist/drawflow.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ru.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
     <link rel="stylesheet" href="/static/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Roboto+Mono&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <header class="top-nav">
@@ -47,6 +51,23 @@
     color: white !important;
 }
 </style>
+
+    <!-- CUSTOM PREMIUM MODALS -->
+    <div id="p-modal" class="p-modal-overlay">
+        <div class="p-modal-content">
+            <div class="p-modal-header">
+                <h3 id="p-modal-title">Confirm Action</h3>
+                <button class="p-modal-close" onclick="closePModal()">&times;</button>
+            </div>
+            <div class="p-modal-body">
+                <p id="p-modal-text">Are you sure you want to proceed?</p>
+            </div>
+            <div class="p-modal-footer">
+                <button id="p-modal-cancel" class="p-btn-secondary" onclick="closePModal()">Cancel</button>
+                <button id="p-modal-confirm" class="p-btn-primary">Confirm</button>
+            </div>
+        </div>
+    </div>
 
         <section id="overview-tab" class="tab-content active">
             <div class="premium-stats">
@@ -231,29 +252,6 @@
             </div>
         </section>
 
-        <!-- BOT CONSTRUCTOR (NEW VISUAL FLOW) -->
-        <section id="constructor-tab" class="tab-content" style="padding:0;">
-            <div id="flow-canvas">
-                <svg id="flow-svg" width="100%" height="100%" style="position:absolute; top:0; left:0; pointer-events:none; z-index:5;">
-                    <defs>
-                        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                            <polygon points="0 0, 10 3.5, 0 7" fill="rgba(255,255,255,0.2)"/>
-                        </marker>
-                    </defs>
-                </svg>
-                <div id="flow-nodes" style="position:relative; width:100%; height:100%; z-index:10;"></div>
-            </div>
-
-            <!-- Side Panel Editor -->
-            <div id="node-editor" class="side-panel">
-                <div class="side-panel-header">
-                    <h2 id="edit-node-id" style="font-size:14px; color:var(--text-muted); font-family:var(--font-mono)"></h2>
-                    <button onclick="closeEditor()" class="close-btn">✕</button>
-                </div>
-                <div style="padding:32px;">
-                    <div class="form-group"><label>Internal Title</label><input type="text" id="edit-node-title"></div>
-                    <div class="form-group"><label>Message content</label><textarea id="edit-node-content" style="height:150px;"></textarea></div>
-                    
                     <div id="buttons-editor" class="form-group">
                         <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
                             <label>Buttons</label>

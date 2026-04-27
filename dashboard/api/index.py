@@ -176,14 +176,38 @@ async def get_nodes(db: Session = Depends(get_db)):
     return db.query(BotNode).all()
 
 @app.post("/api/nodes")
-async def create_node(node: Dict[str, Any], db: Session = Depends(get_db)):
-    db_node = BotNode(**node)
-    db.add(db_node); db.commit(); return db_node
+async def save_node(node: dict, db: Session = Depends(get_db)):
+    db_node = db.query(BotNode).filter(BotNode.id == node['id']).first()
+    if not db_node:
+        db_node = BotNode(id=node['id'])
+        db.add(db_node)
+    
+    db_node.title = node.get('title', db_node.title)
+    db_node.content = node.get('content', db_node.content)
+    db_node.buttons = node.get('buttons', db_node.buttons)
+    db_node.node_type = node.get('node_type', db_node.node_type)
+    db_node.funnel_stage = node.get('funnel_stage', db_node.funnel_stage)
+    db_node.delay = node.get('delay', db_node.delay)
+    db_node.x = node.get('x', db_node.x)
+    db_node.y = node.get('y', db_node.y)
+    
+    db.commit()
+    return {"status": "ok"}
 
-@app.put("/api/nodes/{node_id}")
-async def update_node(node_id: str, node: Dict[str, Any], db: Session = Depends(get_db)):
-    db.query(BotNode).filter(BotNode.id == node_id).update(node)
-    db.commit(); return {"status": "ok"}
+@app.delete("/api/nodes/{node_id}")
+async def delete_node(node_id: str, db: Session = Depends(get_db)):
+    db.query(BotNode).filter(BotNode.id == node_id).delete()
+    db.commit()
+    return {"status": "ok"}
+
+@app.post("/api/nodes/{node_id}/position")
+async def update_node_position(node_id: str, pos: dict, db: Session = Depends(get_db)):
+    db_node = db.query(BotNode).filter(BotNode.id == node_id).first()
+    if db_node:
+        db_node.x = pos.get('x', db_node.x)
+        db_node.y = pos.get('y', db_node.y)
+        db.commit()
+    return {"status": "ok"}
 
 @app.put("/api/nodes/{node_id}/position")
 async def update_node_position(node_id: str, pos: Dict[str, int], db: Session = Depends(get_db)):
