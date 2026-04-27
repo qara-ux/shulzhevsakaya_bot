@@ -65,7 +65,7 @@ async def send_payment_invoice(callback: CallbackQuery, state: FSMContext, bot: 
                         "value": "5000.00",
                         "currency": "RUB"
                     },
-                    "vat_code": 1
+                    "vat_code": 4
                 }
             ]
         }
