@@ -118,8 +118,8 @@ async def handle_node_callback(callback: types.CallbackQuery, state: FSMContext)
     print(f"DEBUG: Processing node callback: {node_id}")
     
     if node_id == "pay":
-        from .payment import send_payment_invoice
-        await send_payment_invoice(callback, state, callback.bot)
+        from .payment import send_payment_link
+        await send_payment_link(callback, state, callback.bot)
         return
 
     # Track as confirmation click
