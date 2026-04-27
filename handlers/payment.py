@@ -17,15 +17,13 @@ router = Router()
 @router.message(F.successful_payment, StateFilter("*"))
 async def process_successful_payment(message: Message, state: FSMContext):
     user_id = message.from_user.id
-    logging.info(f"✅ Processing payment for user {user_id}")
+    print(f"DEBUG: Processing successful payment for {user_id}", flush=True)
     
     try:
-        # 1. IMMEDIATE RESPONSE: Send success node to user
         await send_node(message, "success", state)
         await state.clear()
         cancel_reminders(user_id)
         
-        # 2. BACKGROUND: Update Database
         from dashboard.api.database import SessionLocal
         from dashboard.api.models import UserRecord
         
@@ -38,13 +36,11 @@ async def process_successful_payment(message: Message, state: FSMContext):
                 user.is_paid = True
                 if email: user.email = email
                 db.commit()
-            logging.info(f"💾 DB Updated for {user_id}")
         except Exception as db_err:
-            logging.error(f"❌ DB update error after payment: {db_err}")
+            print(f"DEBUG: DB error: {db_err}", flush=True)
         finally:
             db.close()
 
-        # 3. BACKGROUND: Track and Email
         await track_event(user_id, "payment_success", message.from_user.username, amount=5000, email=email)
         
         if email:
@@ -52,14 +48,14 @@ async def process_successful_payment(message: Message, state: FSMContext):
             await send_receipt_email(email, 5000, message.from_user.username or "Участник")
             
     except Exception as e:
-        logging.error(f"🚨 CRITICAL error in payment handler: {e}", exc_info=True)
+        print(f"DEBUG: Critical error in success handler: {e}", flush=True)
         await message.answer("🎉 Оплата прошла! \n\nВот ваша ссылка: https://t.me/+C-xOxlwd-MFmYjZi")
 
 @router.message(F.text, StateFilter(MarathonState.waiting_for_email))
 async def process_email_legacy(message: Message, state: FSMContext, bot: Bot):
     email = message.text.strip()
     if not is_valid_email(email):
-        await message.answer("❌ Некорректный email. Попробуйте еще раз или нажмите кнопку оплаты.")
+        await message.answer("❌ Некорректный email. Попробуйте еще раз.")
         return
 
     from dashboard.api.database import SessionLocal
@@ -74,47 +70,54 @@ async def process_email_legacy(message: Message, state: FSMContext, bot: Bot):
     await message.answer("Email принят! Выставляю счет...")
     
     prices = [LabeledPrice(label="Участие в марафоне «МЕТОД»", amount=5000 * 100)]
+    token = config.payment_token.get_secret_value()
     
-    # Debug logging
-    logging.info(f"📤 LEGACY_INVOICE: user={message.from_user.id}, token_len={len(config.payment_token.get_secret_value())}")
+    print(f"DEBUG_INVOICE_START: user={message.from_user.id} token_len={len(token)}", flush=True)
 
-    await message.answer_invoice(
-        title="Марафон «МЕТОД»",
-        description="Полный доступ к весеннему марафону трансформации (4 недели)",
-        provider_token=config.payment_token.get_secret_value(),
-        currency="RUB",
-        prices=prices,
-        payload="marathon_payment",
-        start_parameter="marathon_pay",
-        need_email=True,
-        send_email_to_provider=True
-    )
+    try:
+        await message.answer_invoice(
+            title="Марафон «МЕТОД»",
+            description="Полный доступ к весеннему марафону трансформации (4 недели)",
+            provider_token=token,
+            currency="RUB",
+            prices=prices,
+            payload="marathon_payment",
+            start_parameter="marathon_pay",
+            need_email=True,
+            send_email_to_provider=True
+        )
+        print(f"DEBUG_INVOICE_OK: user={message.from_user.id}", flush=True)
+    except Exception as e:
+        print(f"DEBUG_INVOICE_ERROR: user={message.from_user.id} err={e}", flush=True)
+
     await state.set_state(MarathonState.waiting_for_payment)
 
 @router.callback_query(F.data == "go_to_payment")
 async def send_payment_invoice(callback: CallbackQuery, state: FSMContext, bot: Bot):
+    print(f"DEBUG: User {callback.from_user.id} clicked pay", flush=True)
     await track_event(callback.from_user.id, "click_pay", callback.from_user.username)
     await callback.answer()
     
     prices = [LabeledPrice(label="Участие в марафоне «МЕТОД»", amount=5000 * 100)]
-    
-    # Deep Debugging
     token = config.payment_token.get_secret_value()
-    logging.info(f"📤 INVOICE_DEBUG: user={callback.from_user.id}, token_exists={bool(token)}, len={len(token)}")
-    if token:
-        logging.info(f"📝 Token Prefix: {token[:4]}...{token[-4:]}")
+    
+    print(f"DEBUG_INVOICE_START: user={callback.from_user.id} token_len={len(token)}", flush=True)
 
-    await callback.message.answer_invoice(
-        title="Марафон «МЕТОД»",
-        description="Полный доступ к весеннему марафону трансформации (4 недели)",
-        provider_token=token,
-        currency="RUB",
-        prices=prices,
-        payload="marathon_payment",
-        start_parameter="marathon_pay",
-        need_email=True,
-        send_email_to_provider=True
-    )
+    try:
+        await callback.message.answer_invoice(
+            title="Марафон «МЕТОД»",
+            description="Полный доступ к весеннему марафону трансформации (4 недели)",
+            provider_token=token,
+            currency="RUB",
+            prices=prices,
+            payload="marathon_payment",
+            start_parameter="marathon_pay",
+            need_email=True,
+            send_email_to_provider=True
+        )
+        print(f"DEBUG_INVOICE_OK: user={callback.from_user.id}", flush=True)
+    except Exception as e:
+        print(f"DEBUG_INVOICE_ERROR: user={callback.from_user.id} err={e}", flush=True)
     
     await state.set_state(MarathonState.waiting_for_payment)
     await track_event(callback.from_user.id, "payment_started", callback.from_user.username)
@@ -122,11 +125,10 @@ async def send_payment_invoice(callback: CallbackQuery, state: FSMContext, bot: 
 
 @router.pre_checkout_query()
 async def process_pre_checkout(pre_checkout_query: PreCheckoutQuery):
-    logging.info(f"💳 PRE_CHECKOUT_RECEIVED: User {pre_checkout_query.from_user.id}, Total {pre_checkout_query.total_amount/100} {pre_checkout_query.currency}")
-    
+    print(f"DEBUG_PRECHECKOUT: user={pre_checkout_query.from_user.id} total={pre_checkout_query.total_amount}", flush=True)
     try:
         await pre_checkout_query.answer(ok=True)
-        logging.info(f"✅ PRE_CHECKOUT_APPROVED for user {pre_checkout_query.from_user.id}")
+        print(f"DEBUG_PRECHECKOUT_OK: user={pre_checkout_query.from_user.id}", flush=True)
     except Exception as e:
-        logging.error(f"❌ PRE_CHECKOUT_FAILED for user {pre_checkout_query.from_user.id}: {e}")
+        print(f"DEBUG_PRECHECKOUT_ERROR: user={pre_checkout_query.from_user.id} err={e}", flush=True)
         await pre_checkout_query.answer(ok=False, error_message="Ошибка на стороне сервера. Попробуйте позже.")
