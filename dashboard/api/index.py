@@ -155,9 +155,27 @@ async def send_direct(req: Dict[str, Any], db: Session = Depends(get_db)):
         except Exception as e:
             raise HTTPException(500, detail=str(e))
 
-@app.get("/api/logs/{user_id}")
-async def get_user_logs(user_id: str, db: Session = Depends(get_db)):
-    return db.query(AnalyticsEvent).filter(AnalyticsEvent.user_id == int(user_id)).order_by(AnalyticsEvent.created_at.desc()).all()
+@app.get("/api/broadcasts")
+async def get_broadcasts(db: Session = Depends(get_db)):
+    return db.query(ScheduledBroadcast).order_by(ScheduledBroadcast.created_at.desc()).all()
+
+@app.post("/api/broadcasts")
+async def create_broadcast(req: BroadcastRequest, db: Session = Depends(get_db)):
+    new_task = ScheduledBroadcast(
+        message=req.message,
+        filter_type=req.filter_type,
+        send_at=req.send_at,
+        is_recurring=req.is_recurring,
+        recurrence_config=req.recurrence
+    )
+    db.add(new_task)
+    db.commit()
+    return {"status": "ok", "id": new_task.id}
+
+@app.get("/api/users/{user_id}/logs")
+async def get_user_logs(user_id: int, db: Session = Depends(get_db)):
+    logs = db.query(AnalyticsEvent).filter(AnalyticsEvent.user_id == user_id).order_by(AnalyticsEvent.created_at.desc()).limit(100).all()
+    return logs
 
 @app.post("/api/danger/reset")
 async def reset_data(db: Session = Depends(get_db)):
