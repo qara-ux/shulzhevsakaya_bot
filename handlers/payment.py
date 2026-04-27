@@ -106,6 +106,7 @@ async def process_pre_checkout(pre_checkout_query: PreCheckoutQuery):
     logging.info(f"💳 PreCheckoutQuery from {pre_checkout_query.from_user.id}")
     try:
         await pre_checkout_query.answer(ok=True)
+        logging.info(f"✅ PreCheckout answered OK for {pre_checkout_query.from_user.id}")
     except Exception as e:
         logging.error(f"❌ PreCheckout error: {e}")
         await pre_checkout_query.answer(ok=False, error_message="Ошибка на стороне сервера. Попробуйте еще раз через минуту.")
